@@ -1,0 +1,69 @@
+# Render Blueprint — declarative infrastructure-as-code.
+#
+# WHY a render.yaml instead of clicking through the dashboard?
+# - Reproducible: anyone can deploy this project with one click.
+# - Version-controlled: infrastructure changes are tracked in git.
+# - Self-documenting: the entire deployment topology is visible here.
+#
+# WHAT GETS CREATED:
+# 1. A web service running FastAPI + uvicorn
+# 2. A PostgreSQL database (free tier, 1GB)
+# 3. A Redis instance (free tier, 25MB)
+#
+# HOW TO DEPLOY:
+# 1. Push this repo to GitHub.
+# 2. Go to https://dashboard.render.com/blueprints
+# 3. Click "New Blueprint Instance" and connect your repo.
+# 4. Render reads this file and creates everything automatically.
+
+services:
+  - type: web
+    name: sectoral-api
+    runtime: python
+    region: singapore  # Closest to India for low latency
+    plan: free
+
+    # Build & start commands
+    buildCommand: |
+      cd backend && pip install -r requirements.txt
+    startCommand: |
+      cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    # Health check — Render pings this to know the service is alive.
+    healthCheckPath: /api/health
+
+    # Environment variables — secrets are set via Render dashboard.
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sectoral-db
+          property: connectionString
+        # Render gives a postgres:// URL; asyncpg needs postgresql+asyncpg://
+        # We handle this transform in config.py (see note below).
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: sectoral-redis
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually in Render dashboard (secret)
+      - key: CORS_ORIGINS
+        value: "https://your-frontend.vercel.app,http://localhost:3000"
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+
+databases:
+  - name: sectoral-db
+    plan: free
+    region: singapore
+    databaseName: sectoral_db
+    # Free tier: 1GB storage, 97 days retention, auto-suspend after 90 days.
+
+  # Redis
+  - name: sectoral-redis
+    plan: free
+    region: singapore
+    # Note: Render uses 'databases' for both PG and Redis in YAML.
+    # The Redis service type is inferred from the name reference above.

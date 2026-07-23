@@ -1,0 +1,10 @@
+[project]
+name = "sectoral-api"
+version = "0.1.0"
+description = "Stock screener tag & returns tracker for Indian equities"
+requires-python = ">=3.12"
+readme = "README.md"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,209 @@
+/*
+ * TAGS — Tag grid, tag card, and returns chart bars.
+ */
+
+/* ── Tag Grid ────────────────────────────────────────────── */
+.tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+
+/* ── Tag Card ────────────────────────────────────────────── */
+.tag-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-6);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.tag-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.tag-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: var(--shadow-glow);
+}
+
+.tag-card:hover::after {
+  opacity: 1;
+}
+
+.tag-label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+}
+
+.tag-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tag-stock-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.tag-stock-count strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.tag-return {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* ── Returns Chart (Simple CSS bars) ─────────────────────── */
+.returns-section {
+  margin-top: var(--space-8);
+}
+
+.returns-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.returns-title .back-btn {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.returns-title .back-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.returns-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.return-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.return-bar-label {
+  width: 100px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.return-bar-track {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.return-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: white;
+  transition: width var(--transition-slow);
+  min-width: 45px;
+}
+
+.return-bar-fill.positive {
+  background: linear-gradient(90deg, var(--green), #34d399);
+  left: 50%;
+}
+
+.return-bar-fill.negative {
+  background: linear-gradient(90deg, #f87171, var(--red));
+  right: 50%;
+  justify-content: flex-end;
+}
+
+.return-bar-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.return-bar-value {
+  width: 65px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Return Stats Row ────────────────────────────────────── */
+.return-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.return-stat-item {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.return-stat-item .label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.return-stat-item .value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
