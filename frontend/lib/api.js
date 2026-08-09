@@ -16,6 +16,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 async function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
+    cache: 'no-store', // Always fetch fresh data on the server
     ...options,
     headers: {
       'Content-Type': 'application/json',

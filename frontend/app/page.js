@@ -1,28 +1,20 @@
-'use client';
-
 /**
  * Dashboard page — homepage showing top stocks, top tags, and recent alerts.
- *
- * Uses the BFF endpoint (GET /api/dashboard) for a single fetch.
- * All styling comes from styles/dashboard.css (imported in layout.js).
+ * Server Component
  */
 
-import { useEffect, useState } from 'react';
 import { getDashboard } from '@/lib/api';
 
-export default function DashboardPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default async function DashboardPage() {
+  let data = null;
+  let error = null;
 
-  useEffect(() => {
-    getDashboard()
-      .then(setData)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+  try {
+    data = await getDashboard();
+  } catch (err) {
+    error = err.message;
+  }
 
-  if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
@@ -57,7 +49,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Option B: Left col = Today + Weekly stocks, Right col = Sectors */}
       <div className="dashboard-grid">
         {/* ── Left Column: Stocks ──────────────────────────── */}
         <div>
@@ -171,26 +162,6 @@ export default function DashboardPage() {
             </div>
           ))
         )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Loading Skeleton ──────────────────────────────────────── */
-function DashboardSkeleton() {
-  return (
-    <div>
-      <div className="page-header">
-        <div className="skeleton" style={{ width: 200, height: 28, marginBottom: 8 }} />
-        <div className="skeleton" style={{ width: 350, height: 16 }} />
-      </div>
-      <div className="stats-grid">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="stat-card">
-            <div className="skeleton" style={{ width: 80, height: 12, marginBottom: 12 }} />
-            <div className="skeleton" style={{ width: 60, height: 32 }} />
-          </div>
-        ))}
       </div>
     </div>
   );

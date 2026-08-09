@@ -1,32 +1,28 @@
-'use client';
-
 /**
  * Stocks page — searchable, paginated table of all tracked stocks.
- *
- * Styling from styles/stocks.css (imported in layout.js).
+ * Server Component
  */
 
-import { useEffect, useState } from 'react';
 import { getStocks } from '@/lib/api';
+import Link from 'next/link';
 
 const PAGE_SIZE = 30;
 
-export default function StocksPage() {
-  const [stocks, setStocks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
+export default async function StocksPage({ searchParams }) {
+  const resolvedParams = await searchParams;
+  const search = resolvedParams?.q || '';
+  const page = parseInt(resolvedParams?.page || '0', 10);
 
-  useEffect(() => {
-    setLoading(true);
-    getStocks(page * PAGE_SIZE, PAGE_SIZE)
-      .then(setStocks)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [page]);
+  let stocks = [];
+  let error = null;
 
-  // Client-side search filter (on the current page of results).
+  try {
+    stocks = await getStocks(page * PAGE_SIZE, PAGE_SIZE);
+  } catch (err) {
+    error = err.message;
+  }
+
+  // Server-side filter
   const filtered = stocks.filter(
     (s) =>
       s.symbol.toLowerCase().includes(search.toLowerCase()) ||
@@ -43,19 +39,21 @@ export default function StocksPage() {
 
       {/* ── Search Bar ────────────────────────────────────── */}
       <div className="search-bar">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search by symbol, name, or tag..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <form method="GET" action="/stocks" style={{ display: 'flex', width: '100%' }}>
+          <input
+            type="text"
+            name="q"
+            className="search-input"
+            placeholder="Search by symbol, name, or tag..."
+            defaultValue={search}
+          />
+          {/* Keep page in sync if searching from page N */}
+          <input type="hidden" name="page" value="0" /> 
+        </form>
       </div>
 
       {/* ── Table ─────────────────────────────────────────── */}
-      {loading ? (
-        <StocksTableSkeleton />
-      ) : error ? (
+      {error ? (
         <div className="empty-state">
           <div className="empty-icon">⚠️</div>
           <p>{error}</p>
@@ -116,40 +114,24 @@ export default function StocksPage() {
 
       {/* ── Pagination ────────────────────────────────────── */}
       <div className="pagination">
-        <button
-          className="pagination-btn"
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          disabled={page === 0}
-        >
-          ← Previous
-        </button>
+        {page > 0 ? (
+          <Link href={`?q=${encodeURIComponent(search)}&page=${page - 1}`} className="pagination-btn">
+            ← Previous
+          </Link>
+        ) : (
+          <button className="pagination-btn" disabled>← Previous</button>
+        )}
         <span className="pagination-info">
           Page {page + 1}
         </span>
-        <button
-          className="pagination-btn"
-          onClick={() => setPage((p) => p + 1)}
-          disabled={stocks.length < PAGE_SIZE}
-        >
-          Next →
-        </button>
+        {stocks.length >= PAGE_SIZE ? (
+          <Link href={`?q=${encodeURIComponent(search)}&page=${page + 1}`} className="pagination-btn">
+            Next →
+          </Link>
+        ) : (
+          <button className="pagination-btn" disabled>Next →</button>
+        )}
       </div>
-    </div>
-  );
-}
-
-/* ── Loading Skeleton ──────────────────────────────────────── */
-function StocksTableSkeleton() {
-  return (
-    <div className="card">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} style={{ display: 'flex', gap: 16, padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div className="skeleton" style={{ width: 80, height: 16 }} />
-          <div className="skeleton" style={{ width: 60, height: 16 }} />
-          <div className="skeleton" style={{ width: 50, height: 16 }} />
-          <div className="skeleton" style={{ width: 120, height: 16 }} />
-        </div>
-      ))}
     </div>
   );
 }
