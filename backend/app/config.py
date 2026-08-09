@@ -34,10 +34,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
     # ── Gemini LLM settings ──────────────────────────────────────────────
-    # Using gemini-2.0-flash for now; switch to 3.5 when it ships.
+    # Using gemini-3.5-flash — the current free-tier model.
     GEMINI_MODEL: str = "gemini-3.5-flash"
     GEMINI_RPM: int = 10  # requests per minute
     GEMINI_RPD: int = 1400  # requests per day
+    TAG_BATCH_SIZE: int = 30  # Number of stocks to send per Gemini API call
 
     # ── Chartlink scraper settings ───────────────────────────────────────
     CHARTLINK_BASE_URL: str = "https://chartink.com"

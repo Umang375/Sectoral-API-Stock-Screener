@@ -28,6 +28,8 @@ USAGE:
 import asyncio
 import time
 import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,7 @@ class RateLimiter:
         # ── Per-day counter ──────────────────────────────────────────────
         self._rpd = rpd
         self._day_remaining: int = rpd
-        self._day_start: float = time.monotonic()
+        self._current_date = datetime.now(ZoneInfo("Asia/Kolkata")).date()
 
         # ── Concurrency guard ────────────────────────────────────────────
         # Ensures only one coroutine modifies token counts at a time.
@@ -67,12 +69,12 @@ class RateLimiter:
         self._last_refill = now
 
     def _maybe_reset_daily(self) -> None:
-        """Reset the daily counter if 24 hours have passed."""
-        now = time.monotonic()
-        if now - self._day_start >= 86_400:  # 24 hours
+        """Reset the daily counter if the calendar day (IST) has changed."""
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+        if today > self._current_date:
             self._day_remaining = self._rpd
-            self._day_start = now
-            logger.info("Daily rate limit counter reset (%d RPD)", self._rpd)
+            self._current_date = today
+            logger.info("Daily rate limit counter reset for new day (%d RPD)", self._rpd)
 
     async def acquire(self) -> None:
         """Wait until a rate-limit token is available, then consume it.

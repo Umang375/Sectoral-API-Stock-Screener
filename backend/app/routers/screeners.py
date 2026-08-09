@@ -16,6 +16,7 @@ SECURITY NOTE:
 
 from datetime import date
 from io import StringIO
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, BackgroundTasks
 from pydantic import BaseModel
@@ -30,6 +31,8 @@ from app.redis_client import get_redis
 from app.services.chartlink_scraper import ChartlinkScraper, ScrapedStock
 from app.services.gemini_tagger import GeminiTagger
 from app.utils.rate_limiter import RateLimiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/screeners", tags=["screeners"])
 
@@ -81,6 +84,7 @@ async def _tag_stocks_in_background(
     tagger = GeminiTagger(rate_limiter=rate_limiter, redis=redis)
 
     async with async_session_factory() as session:
+        stocks_info = []
         for stock_data in scraped_stocks:
             if not stock_data.symbol:
                 continue
@@ -89,20 +93,19 @@ async def _tag_stocks_in_background(
             stock_stmt = select(Stock).where(Stock.symbol == stock_data.symbol)
             stock_result = await session.exec(stock_stmt)
             stock = stock_result.first()
-            if not stock:
-                continue
+            if stock:
+                stocks_info.append((stock, stock_data.ltp, stock_data.change_pct))
 
+        if stocks_info:
             try:
-                await tagger.generate_tags(
-                    stock=stock,
-                    current_ltp=stock_data.ltp,
-                    change_pct=stock_data.change_pct,
+                await tagger.generate_tags_batch(
+                    stocks_info=stocks_info,
                     screener_name=screener_name,
                     screener_id=screener_id,
                     session=session,
                 )
             except Exception:
-                pass
+                logger.exception("Background batch tagging failed for screener %s", screener_name)
 
 
 # ── CRUD endpoints ───────────────────────────────────────────────────────

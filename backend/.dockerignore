@@ -1,0 +1,20 @@
+# Exclude local environments and build caches from Docker images
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+.env*
+
+# Exclude local logs and testing artifacts
+*.log
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Exclude git internals and markdown docs
+.git/
+.gitignore
+*.md

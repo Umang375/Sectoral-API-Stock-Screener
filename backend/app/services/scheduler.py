@@ -84,6 +84,7 @@ async def daily_screener_fetch() -> None:
                     continue
 
                 today = date.today()
+                stocks_info = []
 
                 for scraped in scraped_stocks:
                     if not scraped.symbol:
@@ -131,18 +132,19 @@ async def daily_screener_fetch() -> None:
                             )
                         )
 
-                    # ── Generate tags ────────────────────────────────────
+                    # Add to batch for tagging
+                    stocks_info.append((stock, scraped.ltp, scraped.change_pct))
+
+                if stocks_info:
                     try:
-                        await tagger.generate_tags(
-                            stock=stock,
-                            current_ltp=scraped.ltp,
-                            change_pct=scraped.change_pct,
+                        await tagger.generate_tags_batch(
+                            stocks_info=stocks_info,
                             screener_name=screener_row.name,
                             screener_id=screener_row.id,
                             session=session,
                         )
                     except Exception:
-                        logger.exception("Tagging failed for %s", scraped.symbol)
+                        logger.exception("Batch tagging failed for screener %s", screener_row.name)
 
                 await session.commit()
                 logger.info(

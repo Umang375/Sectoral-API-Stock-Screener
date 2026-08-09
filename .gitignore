@@ -14,6 +14,14 @@ env/
 
 # Environment variables (secrets!)
 .env
+.env.prod
+.env.production
+.env.aws
+.env.local
+.env.*
+!.env.example
+!.env.prod.example
+
 
 # IDE
 .vscode/
@@ -40,3 +48,7 @@ htmlcov/
 node_modules/
 .next/
 out/
+
+# Local database backup & Docker volume directories
+pgdata/
+redis_data/

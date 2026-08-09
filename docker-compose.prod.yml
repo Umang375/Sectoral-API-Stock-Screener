@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: sectoral_db_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-sectoral_db}
+    ports:
+      # Bind solely to localhost (127.0.0.1) on EC2 to protect DB from public port scanning!
+      # Only containers on this internal Docker network and SSH tunnels can connect.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Named volume stored persistently on AWS EC2 storage disc.
+      # Running code updates or rebuilding images WILL NOT erase this volume.
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-sectoral_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sectoral_redis_prod
+    restart: always
+    command: redis-server --appendonly yes  # Ensure Redis caches persist across reboots
+    ports:
+      - "127.0.0.1:6379:6379" # Bind solely to localhost for maximum security
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sectoral_api_prod
+    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      # Automatically route connections via internal container hostnames (postgres & redis)
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-sectoral_db}
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: production
+    ports:
+      # Expose port 8000 to the host interface so traffic from Vercel/domain can reach FastAPI
+      - "0.0.0.0:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  # Persistent volume storage safely preserved across container reconstructions and restarts
+  postgres_prod_data:
+  redis_prod_data:
