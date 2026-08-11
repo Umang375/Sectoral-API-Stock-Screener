@@ -51,6 +51,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-sectoral_db}
       REDIS_URL: redis://redis:6379/0
       ENVIRONMENT: production
+      TZ: Asia/Kolkata
     ports:
       # Expose port 8000 to the host interface so traffic from Vercel/domain can reach FastAPI
       - "0.0.0.0:8000:8000"

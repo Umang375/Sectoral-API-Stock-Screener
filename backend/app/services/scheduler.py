@@ -201,7 +201,7 @@ def register_jobs() -> None:
     # Daily screener fetch: Mon-Fri, 6:30 PM IST
     scheduler.add_job(
         daily_screener_fetch,
-        CronTrigger(hour=18, minute=30, day_of_week="mon-fri"),
+        CronTrigger(hour=18, minute=30, day_of_week="mon-fri", timezone="Asia/Kolkata"),
         id="daily_screener_fetch",
         name="Daily Screener Fetch",
         replace_existing=True,
@@ -210,7 +210,7 @@ def register_jobs() -> None:
     # Weekly returns: Monday, 7:00 AM IST
     scheduler.add_job(
         weekly_returns_calc,
-        CronTrigger(hour=7, minute=0, day_of_week="mon"),
+        CronTrigger(hour=7, minute=0, day_of_week="mon", timezone="Asia/Kolkata"),
         id="weekly_returns_calc",
         name="Weekly Returns Calculator",
         replace_existing=True,
@@ -219,7 +219,7 @@ def register_jobs() -> None:
     # Cleanup: Sunday, midnight IST
     scheduler.add_job(
         cleanup_old_snapshots,
-        CronTrigger(hour=0, minute=0, day_of_week="sun"),
+        CronTrigger(hour=0, minute=0, day_of_week="sun", timezone="Asia/Kolkata"),
         id="cleanup_old_snapshots",
         name="Cleanup Old Snapshots",
         replace_existing=True,
