@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_session
 from app.models.returns import TagDailyReturns, TagWeeklyReturns
+from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
 from app.schemas.tag import (
     TagDailyReturnsItem,
@@ -19,6 +20,7 @@ from app.schemas.tag import (
     TagReturnsItem,
     TagReturnsResponse,
     TagResponse,
+    TagStockItem,
 )
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
@@ -110,19 +112,69 @@ async def get_tag_returns(
     returns_result = await session.exec(returns_stmt)
     returns = list(returns_result.all())
 
-    return TagReturnsResponse(
-        tag=tag.label,
-        returns=[
-            TagReturnsItem(
-                week_start=r.week_start,
-                week_end=r.week_end,
-                avg_return_pct=r.avg_return_pct,
-                median_return_pct=r.median_return_pct,
-                stock_count=r.stock_count,
+    items: list[TagReturnsItem] = []
+    for row in returns:
+        points_result = await session.exec(
+            select(func.count(func.distinct(DailySnapshot.snapshot_date)))
+            .join(StockTag, StockTag.stock_id == DailySnapshot.stock_id)
+            .where(
+                StockTag.tag_id == tag.id,
+                DailySnapshot.snapshot_date >= row.week_start,
+                DailySnapshot.snapshot_date <= row.week_end,
             )
-            for r in returns
-        ],
+        )
+        data_points = points_result.one()
+        items.append(
+            TagReturnsItem(
+                week_start=row.week_start,
+                week_end=row.week_end,
+                avg_return_pct=row.avg_return_pct,
+                median_return_pct=row.median_return_pct,
+                stock_count=row.stock_count,
+                data_points=data_points,
+                is_complete=data_points >= 5,
+            )
+        )
+
+    return TagReturnsResponse(tag=tag.label, returns=items)
+
+
+@router.get("/{label}/stocks", response_model=list[TagStockItem])
+async def get_tag_stocks(
+    label: str,
+    session: AsyncSession = Depends(get_session),
+) -> list[TagStockItem]:
+    """Get stocks currently associated with a tag."""
+    tag_result = await session.exec(select(Tag).where(Tag.label == label.lower()))
+    tag = tag_result.first()
+    if not tag:
+        raise HTTPException(status_code=404, detail=f"Tag '{label}' not found")
+
+    stmt = (
+        select(Stock)
+        .join(StockTag, StockTag.stock_id == Stock.id)
+        .where(StockTag.tag_id == tag.id)
+        .order_by(Stock.symbol)
     )
+    stocks_result = await session.exec(stmt)
+    items: list[TagStockItem] = []
+    for stock in stocks_result.all():
+        snapshot_result = await session.exec(
+            select(DailySnapshot)
+            .where(DailySnapshot.stock_id == stock.id)
+            .order_by(DailySnapshot.snapshot_date.desc())
+            .limit(1)
+        )
+        latest = snapshot_result.first()
+        items.append(
+            TagStockItem(
+                symbol=stock.symbol,
+                name=stock.name,
+                ltp=latest.ltp if latest else None,
+                change_pct=latest.change_pct if latest else None,
+            )
+        )
+    return items
 
 
 @router.get("/{label}/daily-returns", response_model=TagDailyReturnsResponse)

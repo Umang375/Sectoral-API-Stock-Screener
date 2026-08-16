@@ -19,6 +19,8 @@ class TagReturnsItem(BaseModel):
     avg_return_pct: float
     median_return_pct: float
     stock_count: int
+    data_points: int = 0
+    is_complete: bool = True
 
 
 class TagReturnsResponse(BaseModel):
@@ -41,6 +43,14 @@ class TagDailyReturnsResponse(BaseModel):
     """Daily sector performance history for a tag."""
     tag: str
     returns: list[TagDailyReturnsItem] = []
+
+
+class TagStockItem(BaseModel):
+    """A stock currently associated with a tag."""
+    symbol: str
+    name: str
+    ltp: float | None = None
+    change_pct: float | None = None
 
 
 class StockReturnsItem(BaseModel):

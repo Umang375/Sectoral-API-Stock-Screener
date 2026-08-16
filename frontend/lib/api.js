@@ -58,6 +58,10 @@ export async function getTagDailyReturns(label, limit = 30) {
   return apiFetch(`/api/tags/${encodeURIComponent(label)}/daily-returns?limit=${limit}`);
 }
 
+export async function getTagStocks(label) {
+  return apiFetch(`/api/tags/${encodeURIComponent(label)}/stocks`);
+}
+
 export async function getStockReturns(symbol, limit = 12) {
   return apiFetch(`/api/stocks/${symbol}/returns?limit=${limit}`);
 }

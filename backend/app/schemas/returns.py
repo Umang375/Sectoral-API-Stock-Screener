@@ -10,6 +10,8 @@ class DashboardStock(BaseModel):
     symbol: str
     return_pct: float
     tags: list[str] = []
+    data_points: int = 0
+    is_complete: bool = True
 
 
 class DashboardTag(BaseModel):
@@ -17,6 +19,8 @@ class DashboardTag(BaseModel):
     tag: str
     avg_return_pct: float
     stock_count: int
+    data_points: int = 0
+    is_complete: bool = True
 
 
 class DashboardAlert(BaseModel):

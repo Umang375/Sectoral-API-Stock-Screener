@@ -3,7 +3,7 @@
  * Server Component
  */
 
-import { getTagDailyReturns, getTagReturns } from '@/lib/api';
+import { getTagDailyReturns, getTagReturns, getTagStocks } from '@/lib/api';
 import Link from 'next/link';
 
 export default async function TagDetailPage({ params }) {
@@ -12,6 +12,7 @@ export default async function TagDetailPage({ params }) {
 
   let returnsData = null;
   let dailyReturnsData = null;
+  let stocksData = [];
   let error = null;
 
   try {
@@ -28,6 +29,12 @@ export default async function TagDetailPage({ params }) {
     } catch {
       dailyReturnsData = { returns: [] };
     }
+  }
+
+  try {
+    stocksData = await getTagStocks(tagLabel);
+  } catch {
+    stocksData = [];
   }
 
   return (
@@ -68,16 +75,18 @@ export default async function TagDetailPage({ params }) {
               </div>
               <div className="return-stat-item">
                 <div className="label">Latest Avg Return</div>
-                <div className={`value ${returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {returnsData?.returns[0]?.avg_return_pct > 0 ? '+' : ''}
-                  {(returnsData?.returns[0]?.avg_return_pct || 0).toFixed(2)}%
+                <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                  {returnsData?.returns[0]?.is_complete
+                    ? `${returnsData?.returns[0]?.avg_return_pct > 0 ? '+' : ''}${returnsData.returns[0].avg_return_pct.toFixed(2)}%`
+                    : <><span>—</span><InfoHint points={returnsData?.returns[0]?.data_points} /></>}
                 </div>
               </div>
               <div className="return-stat-item">
                 <div className="label">Latest Median Return</div>
-                <div className={`value ${returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {returnsData?.returns[0]?.median_return_pct > 0 ? '+' : ''}
-                  {(returnsData?.returns[0]?.median_return_pct || 0).toFixed(2)}%
+                <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                  {returnsData?.returns[0]?.is_complete
+                    ? `${returnsData?.returns[0]?.median_return_pct > 0 ? '+' : ''}${returnsData.returns[0].median_return_pct.toFixed(2)}%`
+                    : <><span>—</span><InfoHint points={returnsData?.returns[0]?.data_points} /></>}
                 </div>
               </div>
             </div>
@@ -105,8 +114,8 @@ export default async function TagDetailPage({ params }) {
                       >
                       </div>
                     </div>
-                    <div className={`return-bar-value ${isPositive ? 'text-green' : 'text-red'}`}>
-                      {isPositive ? '+' : ''}{ret.avg_return_pct.toFixed(2)}%
+                    <div className={`return-bar-value ${ret.is_complete && isPositive ? 'text-green' : 'text-red'}`}>
+                      {ret.is_complete ? `${isPositive ? '+' : ''}${ret.avg_return_pct.toFixed(2)}%` : <><span>—</span><InfoHint points={ret.data_points} /></>}
                     </div>
                   </div>
                 );
@@ -114,6 +123,23 @@ export default async function TagDetailPage({ params }) {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+        <div className="returns-title">Related Stocks</div>
+        {!stocksData.length ? (
+          <div className="empty-state"><p>No related stocks found.</p></div>
+        ) : stocksData.map((stock) => (
+          <Link key={stock.symbol} href={`/stocks?q=${encodeURIComponent(stock.symbol)}`} className="performer-item" style={{ textDecoration: 'none' }}>
+            <div className="performer-info">
+              <span className="performer-symbol">{stock.symbol}</span>
+              <span className="text-muted" style={{ fontSize: '0.75rem' }}>{stock.name}</span>
+            </div>
+            <span className={stock.change_pct >= 0 ? 'text-green' : 'text-red'}>
+              {stock.change_pct == null ? '—' : `${stock.change_pct > 0 ? '+' : ''}${stock.change_pct.toFixed(2)}%`}
+            </span>
+          </Link>
+        ))}
       </div>
 
       <div className="card" style={{ marginTop: 'var(--space-6)' }}>
@@ -132,5 +158,16 @@ export default async function TagDetailPage({ params }) {
         )}
       </div>
     </div>
+  );
+}
+
+function InfoHint({ points = 0 }) {
+  return (
+    <details style={{ display: 'inline-block', marginLeft: 6 }}>
+      <summary title="Why is this unavailable?" style={{ cursor: 'pointer', fontSize: '0.7rem' }}>ⓘ</summary>
+      <div style={{ position: 'absolute', zIndex: 10, width: 220, padding: 10, marginTop: 4, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.75rem', fontWeight: 400 }}>
+        Only {points} valid data point{points === 1 ? '' : 's'} are available for this period.
+      </div>
+    </details>
   );
 }
