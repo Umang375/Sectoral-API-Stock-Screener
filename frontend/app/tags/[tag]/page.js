@@ -78,7 +78,7 @@ export default async function TagDetailPage({ params }) {
                 <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
                   {returnsData?.returns[0]?.is_complete
                     ? `${returnsData?.returns[0]?.avg_return_pct > 0 ? '+' : ''}${returnsData.returns[0].avg_return_pct.toFixed(2)}%`
-                    : <><span>—</span><InfoHint points={returnsData?.returns[0]?.data_points} /></>}
+                    : '—'}
                 </div>
               </div>
               <div className="return-stat-item">
@@ -86,7 +86,7 @@ export default async function TagDetailPage({ params }) {
                 <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
                   {returnsData?.returns[0]?.is_complete
                     ? `${returnsData?.returns[0]?.median_return_pct > 0 ? '+' : ''}${returnsData.returns[0].median_return_pct.toFixed(2)}%`
-                    : <><span>—</span><InfoHint points={returnsData?.returns[0]?.data_points} /></>}
+                    : '—'}
                 </div>
               </div>
             </div>
@@ -115,7 +115,7 @@ export default async function TagDetailPage({ params }) {
                       </div>
                     </div>
                     <div className={`return-bar-value ${ret.is_complete && isPositive ? 'text-green' : 'text-red'}`}>
-                      {ret.is_complete ? `${isPositive ? '+' : ''}${ret.avg_return_pct.toFixed(2)}%` : <><span>—</span><InfoHint points={ret.data_points} /></>}
+                      {ret.is_complete ? `${isPositive ? '+' : ''}${ret.avg_return_pct.toFixed(2)}%` : '—'}
                     </div>
                   </div>
                 );
@@ -158,16 +158,5 @@ export default async function TagDetailPage({ params }) {
         )}
       </div>
     </div>
-  );
-}
-
-function InfoHint({ points = 0 }) {
-  return (
-    <details style={{ display: 'inline-block', marginLeft: 6 }}>
-      <summary title="Why is this unavailable?" style={{ cursor: 'pointer', fontSize: '0.7rem' }}>ⓘ</summary>
-      <div style={{ position: 'absolute', zIndex: 10, width: 220, padding: 10, marginTop: 4, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.75rem', fontWeight: 400 }}>
-        Only {points} valid data point{points === 1 ? '' : 's'} are available for this period.
-      </div>
-    </details>
   );
 }

@@ -41,7 +41,7 @@ export default async function DashboardPage() {
           <div className={`stat-value ${data.top_stocks_this_week[0]?.is_complete && data.top_stocks_this_week[0]?.return_pct >= 0 ? 'green' : 'red'}`}>
             {data.top_stocks_this_week[0]?.is_complete
               ? `${data.top_stocks_this_week[0].return_pct > 0 ? '+' : ''}${data.top_stocks_this_week[0].return_pct.toFixed(2)}%`
-              : <><span>—</span><InfoHint points={data.top_stocks_this_week[0]?.data_points} /></>}
+              : '—'}
           </div>
         </div>
         <div className="stat-card">
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                   <span className={`performer-return ${stock.is_complete && stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                    {stock.is_complete ? `${stock.return_pct > 0 ? '+' : ''}${stock.return_pct.toFixed(2)}%` : <><span>—</span><InfoHint points={stock.data_points} /></>}
+                    {stock.is_complete ? `${stock.return_pct > 0 ? '+' : ''}${stock.return_pct.toFixed(2)}%` : '—'}
                   </span>
                 </div>
               ))
@@ -103,8 +103,8 @@ export default async function DashboardPage() {
                       ))}
                     </div>
                   </div>
-                  <span className={`performer-return ${stock.is_complete && stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                    {stock.is_complete ? `${stock.return_pct > 0 ? '+' : ''}${stock.return_pct.toFixed(2)}%` : <><span>—</span><InfoHint points={stock.data_points} /></>}
+                  <span className={`performer-return ${stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                    {stock.return_pct > 0 ? '+' : ''}{stock.return_pct.toFixed(2)}%
                   </span>
                 </div>
               ))
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
                   </span>
                 </div>
                 <span className={`performer-return ${tag.is_complete && tag.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {tag.is_complete ? `${tag.avg_return_pct > 0 ? '+' : ''}${tag.avg_return_pct.toFixed(2)}%` : <><span>—</span><InfoHint points={tag.data_points} /></>}
+                  {tag.is_complete ? `${tag.avg_return_pct > 0 ? '+' : ''}${tag.avg_return_pct.toFixed(2)}%` : '—'}
                 </span>
                 </Link>
             ))
@@ -205,16 +205,5 @@ function ErrorState({ message }) {
         Make sure the backend is running at {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}
       </p>
     </div>
-  );
-}
-
-function InfoHint({ points = 0 }) {
-  return (
-    <details style={{ display: 'inline-block', marginLeft: 6, verticalAlign: 'middle' }}>
-      <summary title="Why is this unavailable?" style={{ cursor: 'pointer', fontSize: '0.7rem', color: 'var(--muted)' }}>ⓘ</summary>
-      <div style={{ position: 'absolute', zIndex: 10, width: 220, padding: 10, marginTop: 4, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: '0.75rem', fontWeight: 400 }}>
-        This weekly result is not shown because only {points} valid data point{points === 1 ? '' : 's'} are available. It will update after more end-of-day snapshots are collected.
-      </div>
-    </details>
   );
 }
