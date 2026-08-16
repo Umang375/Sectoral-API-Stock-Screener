@@ -11,9 +11,15 @@ from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_session
-from app.models.returns import TagWeeklyReturns
+from app.models.returns import TagDailyReturns, TagWeeklyReturns
 from app.models.tag import StockTag, Tag
-from app.schemas.tag import TagReturnsItem, TagReturnsResponse, TagResponse
+from app.schemas.tag import (
+    TagDailyReturnsItem,
+    TagDailyReturnsResponse,
+    TagReturnsItem,
+    TagReturnsResponse,
+    TagResponse,
+)
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
@@ -115,5 +121,41 @@ async def get_tag_returns(
                 stock_count=r.stock_count,
             )
             for r in returns
+        ],
+    )
+
+
+@router.get("/{label}/daily-returns", response_model=TagDailyReturnsResponse)
+async def get_tag_daily_returns(
+    label: str,
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(30, ge=1, le=90, description="Number of trading days"),
+) -> TagDailyReturnsResponse:
+    """Get end-of-day sector performance history for a tag."""
+    tag_stmt = select(Tag).where(Tag.label == label.lower())
+    tag_result = await session.exec(tag_stmt)
+    tag = tag_result.first()
+    if not tag:
+        raise HTTPException(status_code=404, detail=f"Tag '{label}' not found")
+
+    returns_stmt = (
+        select(TagDailyReturns)
+        .where(TagDailyReturns.tag_id == tag.id)
+        .order_by(TagDailyReturns.snapshot_date.desc())
+        .limit(limit)
+    )
+    returns_result = await session.exec(returns_stmt)
+    return TagDailyReturnsResponse(
+        tag=tag.label,
+        returns=[
+            TagDailyReturnsItem(
+                snapshot_date=row.snapshot_date,
+                avg_return_pct=row.avg_return_pct,
+                median_return_pct=row.median_return_pct,
+                stock_count=row.stock_count,
+                advancing_count=row.advancing_count,
+                declining_count=row.declining_count,
+            )
+            for row in returns_result.all()
         ],
     )

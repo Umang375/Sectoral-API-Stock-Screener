@@ -27,6 +27,22 @@ class TagReturnsResponse(BaseModel):
     returns: list[TagReturnsItem] = []
 
 
+class TagDailyReturnsItem(BaseModel):
+    """One end-of-day aggregate return for a tag cohort."""
+    snapshot_date: date
+    avg_return_pct: float
+    median_return_pct: float
+    stock_count: int
+    advancing_count: int
+    declining_count: int
+
+
+class TagDailyReturnsResponse(BaseModel):
+    """Daily sector performance history for a tag."""
+    tag: str
+    returns: list[TagDailyReturnsItem] = []
+
+
 class StockReturnsItem(BaseModel):
     """One week's return for a single stock."""
     week_start: date

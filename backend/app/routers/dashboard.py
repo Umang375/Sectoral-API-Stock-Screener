@@ -16,7 +16,7 @@ from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_session
-from app.models.returns import TagWeeklyReturns, WeeklyReturns
+from app.models.returns import TagDailyReturns, TagWeeklyReturns, WeeklyReturns
 from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
 from app.models.webhook import WebhookAlert
@@ -118,6 +118,25 @@ async def get_dashboard(
         for row in top_tags_rows
     ]
 
+    # ── Top sectors TODAY (end-of-day aggregate) ───────────────────────
+    latest_tag_date_stmt = select(func.max(TagDailyReturns.snapshot_date))
+    latest_tag_date_result = await session.exec(latest_tag_date_stmt)
+    latest_tag_date = latest_tag_date_result.one()
+    top_tags_today: list[DashboardTag] = []
+    if latest_tag_date:
+        daily_tags_stmt = (
+            select(Tag.label, TagDailyReturns.avg_return_pct, TagDailyReturns.stock_count)
+            .join(Tag, Tag.id == TagDailyReturns.tag_id)
+            .where(TagDailyReturns.snapshot_date == latest_tag_date)
+            .order_by(TagDailyReturns.avg_return_pct.desc())
+            .limit(10)
+        )
+        daily_tags_result = await session.exec(daily_tags_stmt)
+        top_tags_today = [
+            DashboardTag(tag=row[0], avg_return_pct=row[1], stock_count=row[2])
+            for row in daily_tags_result.all()
+        ]
+
     # ── Recent alerts ────────────────────────────────────────────────────
     alerts_stmt = (
         select(Stock.symbol, WebhookAlert.alert_type, WebhookAlert.triggered_at)
@@ -148,6 +167,7 @@ async def get_dashboard(
         top_stocks_today=top_stocks_today,
         top_stocks_this_week=top_stocks,
         top_tags_this_week=top_tags,
+        top_tags_today=top_tags_today,
         recent_alerts=recent_alerts,
         total_stocks_tracked=total_stocks,
         total_tags=total_tags,

@@ -11,5 +11,5 @@ WHY import all models here?
 from app.models.screener import Screener  # noqa: F401
 from app.models.stock import DailySnapshot, Stock  # noqa: F401
 from app.models.tag import StockTag, Tag  # noqa: F401
-from app.models.returns import TagWeeklyReturns, WeeklyReturns  # noqa: F401
+from app.models.returns import TagDailyReturns, TagWeeklyReturns, WeeklyReturns  # noqa: F401
 from app.models.webhook import WebhookAlert  # noqa: F401

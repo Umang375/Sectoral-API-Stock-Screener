@@ -31,6 +31,7 @@ class DashboardResponse(BaseModel):
     top_stocks_today: list[DashboardStock] = []
     top_stocks_this_week: list[DashboardStock] = []
     top_tags_this_week: list[DashboardTag] = []
+    top_tags_today: list[DashboardTag] = []
     recent_alerts: list[DashboardAlert] = []
     total_stocks_tracked: int = 0
     total_tags: int = 0

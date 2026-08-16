@@ -3,7 +3,7 @@
  * Server Component
  */
 
-import { getTagReturns } from '@/lib/api';
+import { getTagDailyReturns, getTagReturns } from '@/lib/api';
 import Link from 'next/link';
 
 export default async function TagDetailPage({ params }) {
@@ -11,12 +11,23 @@ export default async function TagDetailPage({ params }) {
   const tagLabel = decodeURIComponent(resolvedParams.tag);
 
   let returnsData = null;
+  let dailyReturnsData = null;
   let error = null;
 
   try {
     returnsData = await getTagReturns(tagLabel, 12);
   } catch (err) {
     error = err.message;
+  }
+
+  // Daily analytics are additive; keep the existing weekly page usable if
+  // the new table is temporarily unavailable during deployment.
+  if (!error) {
+    try {
+      dailyReturnsData = await getTagDailyReturns(tagLabel, 5);
+    } catch {
+      dailyReturnsData = { returns: [] };
+    }
   }
 
   return (
@@ -102,6 +113,22 @@ export default async function TagDetailPage({ params }) {
               })}
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+        <div className="returns-title">Recent End-of-Day Sector Performance</div>
+        {!dailyReturnsData?.returns?.length ? (
+          <div className="empty-state"><p>No daily sector data yet.</p></div>
+        ) : (
+          dailyReturnsData.returns.map((ret) => (
+            <div key={ret.snapshot_date} className="performer-item">
+              <span className="performer-symbol">{ret.snapshot_date}</span>
+              <span className={ret.avg_return_pct >= 0 ? 'text-green' : 'text-red'}>
+                {ret.avg_return_pct > 0 ? '+' : ''}{ret.avg_return_pct.toFixed(2)}%
+              </span>
+            </div>
+          ))
         )}
       </div>
     </div>
