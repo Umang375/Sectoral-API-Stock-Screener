@@ -25,12 +25,13 @@ FORMULA:
 
 import logging
 from datetime import date, timedelta
+from collections import defaultdict
 from statistics import mean, median
 
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.returns import TagWeeklyReturns, WeeklyReturns
+from app.models.returns import TagDailyReturns, TagWeeklyReturns, WeeklyReturns
 from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
 
@@ -81,6 +82,106 @@ class ReturnsCalculator:
             tags_count,
         )
         return {"stocks_processed": stocks_count, "tags_processed": tags_count}
+
+    async def calculate_daily_tag_returns(
+        self,
+        session: AsyncSession,
+        snapshot_date: date,
+    ) -> int:
+        """Materialize end-of-day sector performance for one market date.
+
+        Daily snapshots can exist once per screener, so each stock is first
+        de-duplicated before its return is assigned to tags.
+        """
+        snapshot_stmt = (
+            select(DailySnapshot)
+            .where(DailySnapshot.snapshot_date == snapshot_date)
+            .order_by(DailySnapshot.created_at.desc())
+        )
+        snapshot_result = await session.exec(snapshot_stmt)
+        snapshots_by_stock: dict[int, DailySnapshot] = {}
+        for snapshot in snapshot_result.all():
+            snapshots_by_stock.setdefault(snapshot.stock_id, snapshot)
+
+        if not snapshots_by_stock:
+            return 0
+
+        tag_stmt = select(StockTag).where(
+            StockTag.stock_id.in_(list(snapshots_by_stock))
+        )
+        tag_result = await session.exec(tag_stmt)
+        returns_by_tag: dict[int, list[float]] = defaultdict(list)
+        for stock_tag in tag_result.all():
+            snapshot = snapshots_by_stock.get(stock_tag.stock_id)
+            if snapshot and snapshot.change_pct is not None:
+                returns_by_tag[stock_tag.tag_id].append(snapshot.change_pct)
+
+        processed = 0
+        for tag_id, values in returns_by_tag.items():
+            if not values:
+                continue
+            existing_stmt = select(TagDailyReturns).where(
+                TagDailyReturns.tag_id == tag_id,
+                TagDailyReturns.snapshot_date == snapshot_date,
+            )
+            existing_result = await session.exec(existing_stmt)
+            existing = existing_result.first()
+            payload = {
+                "avg_return_pct": round(mean(values), 4),
+                "median_return_pct": round(median(values), 4),
+                "stock_count": len(values),
+                "advancing_count": sum(value > 0 for value in values),
+                "declining_count": sum(value < 0 for value in values),
+            }
+            if existing:
+                for key, value in payload.items():
+                    setattr(existing, key, value)
+                session.add(existing)
+            else:
+                session.add(
+                    TagDailyReturns(
+                        tag_id=tag_id,
+                        snapshot_date=snapshot_date,
+                        **payload,
+                    )
+                )
+            processed += 1
+
+        await session.commit()
+        return processed
+
+    async def backfill_daily_tag_returns(self, session: AsyncSession) -> int:
+        """Backfill daily sector rows from snapshots already in production."""
+        dates_stmt = select(DailySnapshot.snapshot_date).distinct().order_by(
+            DailySnapshot.snapshot_date
+        )
+        dates_result = await session.exec(dates_stmt)
+        existing_dates_stmt = select(TagDailyReturns.snapshot_date).distinct()
+        existing_dates_result = await session.exec(existing_dates_stmt)
+        existing_dates = set(existing_dates_result.all())
+        processed = 0
+        for snapshot_date in dates_result.all():
+            if snapshot_date in existing_dates:
+                continue
+            processed += await self.calculate_daily_tag_returns(session, snapshot_date)
+        return processed
+
+    async def calculate_recent_completed_weeks(
+        self,
+        session: AsyncSession,
+        weeks: int = 3,
+        target_date: date | None = None,
+    ) -> int:
+        """Calculate available completed weeks, oldest first, idempotently."""
+        reference = target_date or date.today()
+        total = 0
+        for offset in range(weeks, 0, -1):
+            week_end = self._get_last_trading_week(reference)[1] - timedelta(days=7 * (offset - 1))
+            week_start = week_end - timedelta(days=4)
+            total += await self._calculate_stock_returns(session, week_start, week_end)
+            await self._calculate_tag_returns(session, week_start, week_end)
+            await session.commit()
+        return total
 
     # ── Per-stock returns ────────────────────────────────────────────────
 

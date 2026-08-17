@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database import init_db
 from app.redis_client import close_redis, get_redis
-from app.services.scheduler import register_jobs, scheduler
+from app.services.scheduler import backfill_derived_returns, register_jobs, scheduler
 from app.routers import stocks, tags, screeners, dashboard, webhooks
 from app.utils.logging_config import setup_logging
 
@@ -39,6 +39,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting Sectoral API [%s]", settings.ENVIRONMENT)
     await init_db()
     logger.info("Database tables ensured")
+    # Build new derived analytics from persistent snapshots. This is
+    # idempotent and never deletes or replaces existing AWS data.
+    await backfill_derived_returns()
+    logger.info("Derived return data backfilled")
     await get_redis()
     logger.info("Redis connection established")
 

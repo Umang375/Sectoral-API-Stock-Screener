@@ -3,7 +3,7 @@
  * Server Component
  */
 
-import { getTagReturns } from '@/lib/api';
+import { getTagDailyReturns, getTagReturns, getTagStocks } from '@/lib/api';
 import Link from 'next/link';
 
 export default async function TagDetailPage({ params }) {
@@ -11,12 +11,30 @@ export default async function TagDetailPage({ params }) {
   const tagLabel = decodeURIComponent(resolvedParams.tag);
 
   let returnsData = null;
+  let dailyReturnsData = null;
+  let stocksData = [];
   let error = null;
 
   try {
     returnsData = await getTagReturns(tagLabel, 12);
   } catch (err) {
     error = err.message;
+  }
+
+  // Daily analytics are additive; keep the existing weekly page usable if
+  // the new table is temporarily unavailable during deployment.
+  if (!error) {
+    try {
+      dailyReturnsData = await getTagDailyReturns(tagLabel, 5);
+    } catch {
+      dailyReturnsData = { returns: [] };
+    }
+  }
+
+  try {
+    stocksData = await getTagStocks(tagLabel);
+  } catch {
+    stocksData = [];
   }
 
   return (
@@ -57,16 +75,18 @@ export default async function TagDetailPage({ params }) {
               </div>
               <div className="return-stat-item">
                 <div className="label">Latest Avg Return</div>
-                <div className={`value ${returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {returnsData?.returns[0]?.avg_return_pct > 0 ? '+' : ''}
-                  {(returnsData?.returns[0]?.avg_return_pct || 0).toFixed(2)}%
+                <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                  {returnsData?.returns[0]?.is_complete
+                    ? `${returnsData?.returns[0]?.avg_return_pct > 0 ? '+' : ''}${returnsData.returns[0].avg_return_pct.toFixed(2)}%`
+                    : '—'}
                 </div>
               </div>
               <div className="return-stat-item">
                 <div className="label">Latest Median Return</div>
-                <div className={`value ${returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {returnsData?.returns[0]?.median_return_pct > 0 ? '+' : ''}
-                  {(returnsData?.returns[0]?.median_return_pct || 0).toFixed(2)}%
+                <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                  {returnsData?.returns[0]?.is_complete
+                    ? `${returnsData?.returns[0]?.median_return_pct > 0 ? '+' : ''}${returnsData.returns[0].median_return_pct.toFixed(2)}%`
+                    : '—'}
                 </div>
               </div>
             </div>
@@ -94,14 +114,47 @@ export default async function TagDetailPage({ params }) {
                       >
                       </div>
                     </div>
-                    <div className={`return-bar-value ${isPositive ? 'text-green' : 'text-red'}`}>
-                      {isPositive ? '+' : ''}{ret.avg_return_pct.toFixed(2)}%
+                    <div className={`return-bar-value ${ret.is_complete && isPositive ? 'text-green' : 'text-red'}`}>
+                      {ret.is_complete ? `${isPositive ? '+' : ''}${ret.avg_return_pct.toFixed(2)}%` : '—'}
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+        <div className="returns-title">Related Stocks</div>
+        {!stocksData.length ? (
+          <div className="empty-state"><p>No related stocks found.</p></div>
+        ) : stocksData.map((stock) => (
+          <Link key={stock.symbol} href={`/stocks?q=${encodeURIComponent(stock.symbol)}`} className="performer-item" style={{ textDecoration: 'none' }}>
+            <div className="performer-info">
+              <span className="performer-symbol">{stock.symbol}</span>
+              <span className="text-muted" style={{ fontSize: '0.75rem' }}>{stock.name}</span>
+            </div>
+            <span className={stock.change_pct >= 0 ? 'text-green' : 'text-red'}>
+              {stock.change_pct == null ? '—' : `${stock.change_pct > 0 ? '+' : ''}${stock.change_pct.toFixed(2)}%`}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+        <div className="returns-title">Recent End-of-Day Sector Performance</div>
+        {!dailyReturnsData?.returns?.length ? (
+          <div className="empty-state"><p>No daily sector data yet.</p></div>
+        ) : (
+          dailyReturnsData.returns.map((ret) => (
+            <div key={ret.snapshot_date} className="performer-item">
+              <span className="performer-symbol">{ret.snapshot_date}</span>
+              <span className={ret.avg_return_pct >= 0 ? 'text-green' : 'text-red'}>
+                {ret.avg_return_pct > 0 ? '+' : ''}{ret.avg_return_pct.toFixed(2)}%
+              </span>
+            </div>
+          ))
         )}
       </div>
     </div>

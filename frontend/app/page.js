@@ -4,6 +4,7 @@
  */
 
 import { getDashboard } from '@/lib/api';
+import Link from 'next/link';
 
 export default async function DashboardPage() {
   let data = null;
@@ -22,7 +23,7 @@ export default async function DashboardPage() {
     <div>
       <div className="page-header">
         <h2>Dashboard</h2>
-        <p>Weekly performance overview for tracked stocks and sectors</p>
+        <p>End-of-day performance overview for tracked stocks and sectors</p>
       </div>
 
       {/* ── Stats Grid ────────────────────────────────────── */}
@@ -37,8 +38,8 @@ export default async function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Top Return</div>
-          <div className={`stat-value ${data.top_stocks_this_week[0]?.return_pct >= 0 ? 'green' : 'red'}`}>
-            {data.top_stocks_this_week[0]
+          <div className={`stat-value ${data.top_stocks_this_week[0]?.is_complete && data.top_stocks_this_week[0]?.return_pct >= 0 ? 'green' : 'red'}`}>
+            {data.top_stocks_this_week[0]?.is_complete
               ? `${data.top_stocks_this_week[0].return_pct > 0 ? '+' : ''}${data.top_stocks_this_week[0].return_pct.toFixed(2)}%`
               : '—'}
           </div>
@@ -73,8 +74,8 @@ export default async function DashboardPage() {
                       ))}
                     </div>
                   </div>
-                  <span className={`performer-return ${stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                    {stock.return_pct > 0 ? '+' : ''}{stock.return_pct.toFixed(2)}%
+                  <span className={`performer-return ${stock.is_complete && stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                    {stock.is_complete ? `${stock.return_pct > 0 ? '+' : ''}${stock.return_pct.toFixed(2)}%` : '—'}
                   </span>
                 </div>
               ))
@@ -123,7 +124,34 @@ export default async function DashboardPage() {
             </div>
           ) : (
             data.top_tags_this_week.map((tag, i) => (
-              <div key={i} className="performer-item">
+              <Link key={i} href={`/tags/${encodeURIComponent(tag.tag)}`} className="performer-item" style={{ textDecoration: 'none' }}>
+                <div className="performer-info">
+                  <span className="performer-symbol">{tag.tag}</span>
+                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    {tag.stock_count} stocks
+                  </span>
+                </div>
+                <span className={`performer-return ${tag.is_complete && tag.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                  {tag.is_complete ? `${tag.avg_return_pct > 0 ? '+' : ''}${tag.avg_return_pct.toFixed(2)}%` : '—'}
+                </span>
+                </Link>
+            ))
+          )}
+        </div>
+
+        {/* ── Top Sectors Today ───────────────────────────── */}
+        <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+          <div className="card-header">
+            <span className="card-title">📊 Top Sectors Today</span>
+          </div>
+          {(data.top_tags_today?.length ?? 0) === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📊</div>
+              <p>No daily sector data yet.</p>
+            </div>
+          ) : (
+            data.top_tags_today.map((tag, i) => (
+              <Link key={i} href={`/tags/${encodeURIComponent(tag.tag)}`} className="performer-item" style={{ textDecoration: 'none' }}>
                 <div className="performer-info">
                   <span className="performer-symbol">{tag.tag}</span>
                   <span className="text-muted" style={{ fontSize: '0.75rem' }}>
@@ -133,7 +161,7 @@ export default async function DashboardPage() {
                 <span className={`performer-return ${tag.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
                   {tag.avg_return_pct > 0 ? '+' : ''}{tag.avg_return_pct.toFixed(2)}%
                 </span>
-              </div>
+              </Link>
             ))
           )}
         </div>

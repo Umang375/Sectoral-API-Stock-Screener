@@ -16,7 +16,7 @@ from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_session
-from app.models.returns import TagWeeklyReturns, WeeklyReturns
+from app.models.returns import TagDailyReturns, TagWeeklyReturns, WeeklyReturns
 from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
 from app.models.webhook import WebhookAlert
@@ -76,7 +76,13 @@ async def get_dashboard(
 
     # ── Top stocks this week (by return %) ───────────────────────────────
     top_stocks_stmt = (
-        select(Stock.symbol, WeeklyReturns.return_pct)
+        select(
+            Stock.symbol,
+            WeeklyReturns.stock_id,
+            WeeklyReturns.return_pct,
+            WeeklyReturns.week_start,
+            WeeklyReturns.week_end,
+        )
         .join(Stock, Stock.id == WeeklyReturns.stock_id)
         .order_by(WeeklyReturns.week_start.desc(), WeeklyReturns.return_pct.desc())
         .limit(10)
@@ -96,13 +102,34 @@ async def get_dashboard(
         tag_result = await session.exec(tag_stmt)
         tags = list(tag_result.all())
 
+        points_stmt = select(func.count(func.distinct(DailySnapshot.snapshot_date))).where(
+            DailySnapshot.stock_id == row[1],
+            DailySnapshot.snapshot_date >= row[3],
+            DailySnapshot.snapshot_date <= row[4],
+        )
+        points_result = await session.exec(points_stmt)
+        data_points = points_result.one()
+
         top_stocks.append(
-            DashboardStock(symbol=row[0], return_pct=row[1], tags=tags)
+            DashboardStock(
+                symbol=row[0],
+                return_pct=row[2],
+                tags=tags,
+                data_points=data_points,
+                is_complete=data_points >= 5,
+            )
         )
 
     # ── Top tags this week (by avg return %) ─────────────────────────────
     top_tags_stmt = (
-        select(Tag.label, TagWeeklyReturns.avg_return_pct, TagWeeklyReturns.stock_count)
+        select(
+            Tag.label,
+            TagWeeklyReturns.tag_id,
+            TagWeeklyReturns.avg_return_pct,
+            TagWeeklyReturns.stock_count,
+            TagWeeklyReturns.week_start,
+            TagWeeklyReturns.week_end,
+        )
         .join(Tag, Tag.id == TagWeeklyReturns.tag_id)
         .order_by(
             TagWeeklyReturns.week_start.desc(),
@@ -113,10 +140,47 @@ async def get_dashboard(
     top_tags_result = await session.exec(top_tags_stmt)
     top_tags_rows = list(top_tags_result.all())
 
-    top_tags = [
-        DashboardTag(tag=row[0], avg_return_pct=row[1], stock_count=row[2])
-        for row in top_tags_rows
-    ]
+    top_tags = []
+    for row in top_tags_rows:
+        points_stmt = (
+            select(func.count(func.distinct(DailySnapshot.snapshot_date)))
+            .join(StockTag, StockTag.stock_id == DailySnapshot.stock_id)
+            .where(
+                StockTag.tag_id == row[1],
+                DailySnapshot.snapshot_date >= row[4],
+                DailySnapshot.snapshot_date <= row[5],
+            )
+        )
+        points_result = await session.exec(points_stmt)
+        data_points = points_result.one()
+        top_tags.append(
+            DashboardTag(
+                tag=row[0],
+                avg_return_pct=row[2],
+                stock_count=row[3],
+                data_points=data_points,
+                is_complete=data_points >= 5,
+            )
+        )
+
+    # ── Top sectors TODAY (end-of-day aggregate) ───────────────────────
+    latest_tag_date_stmt = select(func.max(TagDailyReturns.snapshot_date))
+    latest_tag_date_result = await session.exec(latest_tag_date_stmt)
+    latest_tag_date = latest_tag_date_result.one()
+    top_tags_today: list[DashboardTag] = []
+    if latest_tag_date:
+        daily_tags_stmt = (
+            select(Tag.label, TagDailyReturns.avg_return_pct, TagDailyReturns.stock_count)
+            .join(Tag, Tag.id == TagDailyReturns.tag_id)
+            .where(TagDailyReturns.snapshot_date == latest_tag_date)
+            .order_by(TagDailyReturns.avg_return_pct.desc())
+            .limit(10)
+        )
+        daily_tags_result = await session.exec(daily_tags_stmt)
+        top_tags_today = [
+            DashboardTag(tag=row[0], avg_return_pct=row[1], stock_count=row[2])
+            for row in daily_tags_result.all()
+        ]
 
     # ── Recent alerts ────────────────────────────────────────────────────
     alerts_stmt = (
@@ -148,6 +212,7 @@ async def get_dashboard(
         top_stocks_today=top_stocks_today,
         top_stocks_this_week=top_stocks,
         top_tags_this_week=top_tags,
+        top_tags_today=top_tags_today,
         recent_alerts=recent_alerts,
         total_stocks_tracked=total_stocks,
         total_tags=total_tags,

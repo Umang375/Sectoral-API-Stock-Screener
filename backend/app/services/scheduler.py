@@ -153,6 +153,10 @@ async def daily_screener_fetch() -> None:
                     len(scraped_stocks),
                 )
 
+            # Materialize end-of-day sector performance from the snapshots
+            # just written. This is additive and does not alter stock data.
+            await ReturnsCalculator().calculate_daily_tag_returns(session, date.today())
+
     finally:
         await scraper.close()
 
@@ -164,8 +168,21 @@ async def weekly_returns_calc() -> None:
     """
     calculator = ReturnsCalculator()
     async with async_session_factory() as session:
-        summary = await calculator.calculate_all(session)
-        logger.info("Weekly returns: %s", summary)
+        processed = await calculator.calculate_recent_completed_weeks(session, weeks=3)
+        logger.info("Completed weekly returns refreshed: %d stock rows", processed)
+
+
+async def backfill_derived_returns() -> None:
+    """Build new derived data from existing persistent snapshots after deploy."""
+    calculator = ReturnsCalculator()
+    async with async_session_factory() as session:
+        daily_count = await calculator.backfill_daily_tag_returns(session)
+        weekly_count = await calculator.calculate_recent_completed_weeks(session, weeks=3)
+        logger.info(
+            "Derived-return backfill complete: %d daily tag rows, %d weekly stock rows",
+            daily_count,
+            weekly_count,
+        )
 
 
 async def cleanup_old_snapshots() -> None:

@@ -19,7 +19,26 @@ WHY both avg_return_pct AND median_return_pct for tags?
 
 from datetime import date
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
+
+
+class TagDailyReturns(SQLModel, table=True):
+    """End-of-day aggregate return for all stocks carrying a tag."""
+
+    __tablename__ = "tag_daily_returns"
+    __table_args__ = (
+        UniqueConstraint("tag_id", "snapshot_date", name="uq_tag_daily_return"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    tag_id: int = Field(foreign_key="tags.id", index=True)
+    snapshot_date: date = Field(index=True)
+    avg_return_pct: float
+    median_return_pct: float
+    stock_count: int
+    advancing_count: int
+    declining_count: int
 
 
 class WeeklyReturns(SQLModel, table=True):
