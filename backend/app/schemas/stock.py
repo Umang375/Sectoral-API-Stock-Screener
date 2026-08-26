@@ -37,10 +37,20 @@ class StockResponse(BaseModel):
 
 
 class StockListItem(BaseModel):
-    """Lightweight stock item for list endpoints."""
+    """Stock item for list and heatmap matrix endpoints."""
     symbol: str
     name: str
     sector: str | None = None
     tags: list[str] = []
     ltp: float | None = None
     change_pct: float | None = None
+    drawdown_52w_high: float | None = None
+    return_1d: float | None = None
+    return_1w: float | None = None
+    return_1m: float | None = None
+    return_3m: float | None = None
+    return_6m: float | None = None
+    return_1y: float | None = None
+    return_2y: float | None = None
+    volume: int | None = None
+

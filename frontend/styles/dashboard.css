@@ -182,3 +182,30 @@
 .empty-state p {
   font-size: 0.9rem;
 }
+
+/* ── Dashboard Spacing & Utility Classes ──────────────────── */
+.card-mb {
+  margin-bottom: var(--space-6);
+}
+
+.card-mt {
+  margin-top: var(--space-6);
+}
+
+.link-clean {
+  text-decoration: none;
+}
+
+.subtext-small {
+  font-size: 0.75rem;
+}
+
+.error-muted-note {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.dashboard-heatmap-wrap {
+  margin-bottom: var(--space-8);
+}
+

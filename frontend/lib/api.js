@@ -38,7 +38,7 @@ export async function getDashboard() {
   return apiFetch('/api/dashboard');
 }
 
-export async function getStocks(skip = 0, limit = 50) {
+export async function getStocks(skip = 0, limit = 100) {
   return apiFetch(`/api/stocks?skip=${skip}&limit=${limit}`);
 }
 
@@ -46,7 +46,7 @@ export async function getStock(symbol) {
   return apiFetch(`/api/stocks/${symbol}`);
 }
 
-export async function getTags(skip = 0, limit = 50) {
+export async function getTags(skip = 0, limit = 100) {
   return apiFetch(`/api/tags?skip=${skip}&limit=${limit}`);
 }
 

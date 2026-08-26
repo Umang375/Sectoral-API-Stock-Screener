@@ -1,29 +1,53 @@
 /**
- * Dashboard page — homepage showing top stocks, top tags, and recent alerts.
+ * Dashboard page — homepage displaying stats overview, Top Sectors matrix,
+ * Top Stocks matrix, and real-time webhook alerts.
  * Server Component
  */
 
-import { getDashboard } from '@/lib/api';
-import Link from 'next/link';
+import { getDashboard, getStocks, getTags } from '@/lib/api';
+import SectorHeatmapTable from '@/components/SectorHeatmap/SectorHeatmapTable';
+import StockHeatmapTable from '@/components/SectorHeatmap/StockHeatmapTable';
+
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   let data = null;
+  let tags = [];
+  let stocks = [];
   let error = null;
 
   try {
-    data = await getDashboard();
+    const [dashboardRes, tagsRes, stocksRes] = await Promise.allSettled([
+      getDashboard(),
+      getTags(0, 100),
+      getStocks(0, 100),
+    ]);
+
+    if (dashboardRes.status === 'fulfilled') {
+      data = dashboardRes.value;
+    } else {
+      error = dashboardRes.reason?.message || 'Failed to load dashboard data';
+    }
+
+    if (tagsRes.status === 'fulfilled') {
+      tags = tagsRes.value || [];
+    }
+
+    if (stocksRes.status === 'fulfilled') {
+      stocks = stocksRes.value || [];
+    }
   } catch (err) {
     error = err.message;
   }
 
-  if (error) return <ErrorState message={error} />;
+  if (error && !data) return <ErrorState message={error} />;
   if (!data) return null;
 
   return (
     <div>
       <div className="page-header">
         <h2>Dashboard</h2>
-        <p>End-of-day performance overview for tracked stocks and sectors</p>
+        <p>End-of-day performance overview for tracked equities and sector cohorts</p>
       </div>
 
       {/* ── Stats Grid ────────────────────────────────────── */}
@@ -33,12 +57,19 @@ export default async function DashboardPage() {
           <div className="stat-value">{data.total_stocks_tracked}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Active Tags</div>
+          <div className="stat-label">Active Sectors</div>
           <div className="stat-value">{data.total_tags}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Top Return</div>
-          <div className={`stat-value ${data.top_stocks_this_week[0]?.is_complete && data.top_stocks_this_week[0]?.return_pct >= 0 ? 'green' : 'red'}`}>
+          <div
+            className={`stat-value ${
+              data.top_stocks_this_week[0]?.is_complete &&
+              data.top_stocks_this_week[0]?.return_pct >= 0
+                ? 'green'
+                : 'red'
+            }`}
+          >
             {data.top_stocks_this_week[0]?.is_complete
               ? `${data.top_stocks_this_week[0].return_pct > 0 ? '+' : ''}${data.top_stocks_this_week[0].return_pct.toFixed(2)}%`
               : '—'}
@@ -46,133 +77,43 @@ export default async function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Alerts Today</div>
-          <div className="stat-value">{data.recent_alerts.length}</div>
+          <div className="stat-value">{data.recent_alerts?.length || 0}</div>
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        {/* ── Left Column: Stocks ──────────────────────────── */}
-        <div>
-          {/* Top Stocks Today */}
-          <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="card-header">
-              <span className="card-title">🔥 Top Stocks Today</span>
-            </div>
-            {(data.top_stocks_today?.length ?? 0) === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">📈</div>
-                <p>No daily data yet. Run a screener to get started.</p>
-              </div>
-            ) : (
-              data.top_stocks_today?.map((stock, i) => (
-                <div key={i} className="performer-item">
-                  <div className="performer-info">
-                    <span className="performer-symbol">{stock.symbol}</span>
-                    <div className="performer-tags">
-                      {stock.tags.slice(0, 3).map((tag, j) => (
-                        <span key={j} className="badge badge-accent">{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className={`performer-return ${stock.is_complete && stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                    {stock.is_complete ? `${stock.return_pct > 0 ? '+' : ''}${stock.return_pct.toFixed(2)}%` : '—'}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Top Stocks This Week */}
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">🏆 Top Stocks This Week</span>
-            </div>
-            {data.top_stocks_this_week.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">📈</div>
-                <p>No weekly returns data yet. Data appears after the first week.</p>
-              </div>
-            ) : (
-              data.top_stocks_this_week.map((stock, i) => (
-                <div key={i} className="performer-item">
-                  <div className="performer-info">
-                    <span className="performer-symbol">{stock.symbol}</span>
-                    <div className="performer-tags">
-                      {stock.tags.slice(0, 3).map((tag, j) => (
-                        <span key={j} className="badge badge-accent">{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className={`performer-return ${stock.return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                    {stock.return_pct > 0 ? '+' : ''}{stock.return_pct.toFixed(2)}%
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
+      {/* ── Top Sectors Heatmap Matrix ──────────────────────── */}
+      {tags.length > 0 && (
+        <div className="dashboard-heatmap-wrap">
+          <SectorHeatmapTable
+            sectors={tags}
+            title="Top Sectors"
+            subtitle="Market breadth, 52W high drawdown, and multi-period return heatmaps"
+            defaultLimit={8}
+            showControls={true}
+            allowExpandAll={true}
+          />
         </div>
+      )}
 
-        {/* ── Right Column: Sectors ────────────────────────── */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">🏷️ Top Sectors This Week</span>
-          </div>
-          {data.top_tags_this_week.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🏷️</div>
-              <p>No tag returns yet. Data will appear after the first week.</p>
-            </div>
-          ) : (
-            data.top_tags_this_week.map((tag, i) => (
-              <Link key={i} href={`/tags/${encodeURIComponent(tag.tag)}`} className="performer-item" style={{ textDecoration: 'none' }}>
-                <div className="performer-info">
-                  <span className="performer-symbol">{tag.tag}</span>
-                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                    {tag.stock_count} stocks
-                  </span>
-                </div>
-                <span className={`performer-return ${tag.is_complete && tag.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {tag.is_complete ? `${tag.avg_return_pct > 0 ? '+' : ''}${tag.avg_return_pct.toFixed(2)}%` : '—'}
-                </span>
-                </Link>
-            ))
-          )}
+      {/* ── Top Stocks Heatmap Matrix ───────────────────────── */}
+      {stocks.length > 0 && (
+        <div className="dashboard-heatmap-wrap">
+          <StockHeatmapTable
+            stocks={stocks}
+            title="Top Stocks"
+            subtitle="Multi-period equity returns, 52W high distance, sector tags, and volume"
+            defaultLimit={10}
+            showControls={true}
+          />
         </div>
+      )}
 
-        {/* ── Top Sectors Today ───────────────────────────── */}
-        <div className="card" style={{ marginTop: 'var(--space-6)' }}>
-          <div className="card-header">
-            <span className="card-title">📊 Top Sectors Today</span>
-          </div>
-          {(data.top_tags_today?.length ?? 0) === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📊</div>
-              <p>No daily sector data yet.</p>
-            </div>
-          ) : (
-            data.top_tags_today.map((tag, i) => (
-              <Link key={i} href={`/tags/${encodeURIComponent(tag.tag)}`} className="performer-item" style={{ textDecoration: 'none' }}>
-                <div className="performer-info">
-                  <span className="performer-symbol">{tag.tag}</span>
-                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                    {tag.stock_count} stocks
-                  </span>
-                </div>
-                <span className={`performer-return ${tag.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
-                  {tag.avg_return_pct > 0 ? '+' : ''}{tag.avg_return_pct.toFixed(2)}%
-                </span>
-              </Link>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* ── Recent Alerts ─────────────────────────────────── */}
-      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+      {/* ── Recent Alerts Feed ──────────────────────────────── */}
+      <div className="card card-mb">
         <div className="card-header">
           <span className="card-title">⚡ Recent Alerts</span>
         </div>
-        {data.recent_alerts.length === 0 ? (
+        {(data.recent_alerts?.length ?? 0) === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">⚡</div>
             <p>No webhook alerts received yet.</p>
@@ -201,7 +142,7 @@ function ErrorState({ message }) {
     <div className="empty-state">
       <div className="empty-icon">⚠️</div>
       <p>Failed to load dashboard: {message}</p>
-      <p className="text-muted" style={{ marginTop: 8, fontSize: '0.8rem' }}>
+      <p className="text-muted error-muted-note">
         Make sure the backend is running at {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}
       </p>
     </div>

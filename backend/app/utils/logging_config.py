@@ -25,7 +25,7 @@ def setup_logging(environment: str = "development") -> None:
 
     # Format: timestamp, level, logger name, message.
     formatter = logging.Formatter(
-        fmt="%(asctime)s │ %(levelname)-8s │ %(name)s │ %(message)s",
+        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 

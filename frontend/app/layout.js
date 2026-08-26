@@ -11,6 +11,7 @@ import '@/styles/layout.css';
 import '@/styles/dashboard.css';
 import '@/styles/stocks.css';
 import '@/styles/tags.css';
+import '@/styles/heatmap.css';
 import Link from 'next/link';
 
 export const metadata = {

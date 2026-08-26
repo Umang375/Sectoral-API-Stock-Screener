@@ -207,3 +207,17 @@
   font-weight: 700;
   font-family: var(--font-mono);
 }
+
+/* ── Tags Helper Classes ─────────────────────────────────── */
+.tag-returns-heading {
+  margin-left: 12px;
+}
+
+.tags-link-clean {
+  text-decoration: none;
+}
+
+.tags-subtext {
+  font-size: 0.8rem;
+}
+

@@ -6,6 +6,10 @@ WHY a separate tags router?
 - The returns endpoint aggregates across all stocks in a tag cohort.
 """
 
+from collections import defaultdict
+from datetime import date, timedelta
+from statistics import mean
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -20,24 +24,216 @@ from app.schemas.tag import (
     TagReturnsItem,
     TagReturnsResponse,
     TagResponse,
+    TagStockDetail,
     TagStockItem,
 )
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
 
+async def _enrich_tags_with_metrics(
+    session: AsyncSession,
+    tag_rows: list[tuple[int, str, int]],
+) -> list[TagResponse]:
+    """Enrich a list of (tag_id, label, stock_count) with full performance matrix."""
+    if not tag_rows:
+        return []
+
+    tag_ids = [r[0] for r in tag_rows]
+
+    # 1. Fetch stock mappings for these tags
+    stock_tag_stmt = (
+        select(StockTag.tag_id, Stock.id, Stock.symbol, Stock.name)
+        .join(Stock, Stock.id == StockTag.stock_id)
+        .where(StockTag.tag_id.in_(tag_ids))
+        .order_by(Stock.symbol)
+    )
+    stock_tag_result = await session.exec(stock_tag_stmt)
+    stock_tag_rows = stock_tag_result.all()
+
+    tag_stocks_map: dict[int, list[tuple[int, str, str]]] = defaultdict(list)
+    all_stock_ids = set()
+    for row in stock_tag_rows:
+        tag_stocks_map[row[0]].append((row[1], row[2], row[3]))
+        all_stock_ids.add(row[1])
+
+    # 2. Fetch latest TagDailyReturns & TagWeeklyReturns if available
+    daily_returns_stmt = (
+        select(TagDailyReturns)
+        .where(TagDailyReturns.tag_id.in_(tag_ids))
+        .order_by(TagDailyReturns.snapshot_date.desc())
+    )
+    daily_returns_res = await session.exec(daily_returns_stmt)
+    tag_daily_map: dict[int, TagDailyReturns] = {}
+    for dr in daily_returns_res.all():
+        if dr.tag_id not in tag_daily_map:
+            tag_daily_map[dr.tag_id] = dr
+
+    weekly_returns_stmt = (
+        select(TagWeeklyReturns)
+        .where(TagWeeklyReturns.tag_id.in_(tag_ids))
+        .order_by(TagWeeklyReturns.week_start.desc())
+    )
+    weekly_returns_res = await session.exec(weekly_returns_stmt)
+    tag_weekly_map: dict[int, TagWeeklyReturns] = {}
+    for wr in weekly_returns_res.all():
+        if wr.tag_id not in tag_weekly_map:
+            tag_weekly_map[wr.tag_id] = wr
+
+    # 3. Fetch snapshots for constituent stocks
+    stock_metrics: dict[int, dict] = {}
+    if all_stock_ids:
+        snap_stmt = (
+            select(DailySnapshot)
+            .where(DailySnapshot.stock_id.in_(list(all_stock_ids)))
+            .order_by(DailySnapshot.snapshot_date.desc())
+        )
+        snap_res = await session.exec(snap_stmt)
+        all_snaps = snap_res.all()
+
+        snaps_by_stock: dict[int, list[DailySnapshot]] = defaultdict(list)
+        for s in all_snaps:
+            snaps_by_stock[s.stock_id].append(s)
+
+        for stock_id, snaps in snaps_by_stock.items():
+            if not snaps:
+                continue
+            latest_snap = snaps[0]
+            ref_date = latest_snap.snapshot_date
+            valid_ltps = [s.ltp for s in snaps if s.ltp is not None]
+            max_ltp = max(valid_ltps) if valid_ltps else None
+
+            drawdown_52w = (
+                round(((latest_snap.ltp - max_ltp) / max_ltp) * 100, 1)
+                if (latest_snap.ltp is not None and max_ltp and max_ltp > 0)
+                else None
+            )
+
+            # Anchor lookups for multi-period returns
+            def get_anchor_ltp(target_days: int, min_days: int, max_days: int) -> float | None:
+                candidates = [
+                    s for s in snaps
+                    if s.ltp is not None and min_days <= (ref_date - s.snapshot_date).days <= max_days
+                ]
+                if not candidates:
+                    return None
+                target_d = ref_date - timedelta(days=target_days)
+                candidates.sort(key=lambda s: abs((s.snapshot_date - target_d).days))
+                return candidates[0].ltp
+
+            def calc_ret(past_val: float | None) -> float | None:
+                if latest_snap.ltp is not None and past_val is not None and past_val > 0:
+                    return round(((latest_snap.ltp - past_val) / past_val) * 100, 2)
+                return None
+
+            stock_metrics[stock_id] = {
+                "ltp": latest_snap.ltp,
+                "change_pct": latest_snap.change_pct,
+                "volume": latest_snap.volume,
+                "drawdown_52w": drawdown_52w,
+                "ret_1w": calc_ret(get_anchor_ltp(7, 4, 12)),
+                "ret_1m": calc_ret(get_anchor_ltp(30, 20, 45)),
+                "ret_3m": calc_ret(get_anchor_ltp(90, 65, 115)),
+                "ret_6m": calc_ret(get_anchor_ltp(180, 140, 220)),
+                "ret_1y": calc_ret(get_anchor_ltp(365, 300, 420)),
+                "ret_2y": calc_ret(get_anchor_ltp(730, 650, 800)),
+            }
+
+    # 4. Construct enriched TagResponse items
+    responses: list[TagResponse] = []
+    for tag_id, label, count in tag_rows:
+        constituent_stocks_info = tag_stocks_map.get(tag_id, [])
+        stock_details: list[TagStockDetail] = []
+
+        ret_1w_list = []
+        ret_1m_list = []
+        ret_3m_list = []
+        ret_6m_list = []
+        ret_1y_list = []
+        ret_2y_list = []
+        drawdown_list = []
+
+        for sid, sym, nm in constituent_stocks_info:
+            sm = stock_metrics.get(sid, {})
+            stock_details.append(
+                TagStockDetail(
+                    symbol=sym,
+                    name=nm,
+                    ltp=sm.get("ltp"),
+                    change_pct=sm.get("change_pct"),
+                    drawdown_52w_high=sm.get("drawdown_52w"),
+                    volume=sm.get("volume"),
+                )
+            )
+            if sm.get("drawdown_52w") is not None:
+                drawdown_list.append(sm["drawdown_52w"])
+            if sm.get("ret_1w") is not None:
+                ret_1w_list.append(sm["ret_1w"])
+            if sm.get("ret_1m") is not None:
+                ret_1m_list.append(sm["ret_1m"])
+            if sm.get("ret_3m") is not None:
+                ret_3m_list.append(sm["ret_3m"])
+            if sm.get("ret_6m") is not None:
+                ret_6m_list.append(sm["ret_6m"])
+            if sm.get("ret_1y") is not None:
+                ret_1y_list.append(sm["ret_1y"])
+            if sm.get("ret_2y") is not None:
+                ret_2y_list.append(sm["ret_2y"])
+
+        # Advance / Decline & 1D
+        if tag_id in tag_daily_map:
+            adv_count = tag_daily_map[tag_id].advancing_count
+            dec_count = tag_daily_map[tag_id].declining_count
+            ret_1d = round(tag_daily_map[tag_id].avg_return_pct, 1)
+        else:
+            adv_count = sum(1 for s in stock_details if s.change_pct is not None and s.change_pct > 0)
+            dec_count = sum(1 for s in stock_details if s.change_pct is not None and s.change_pct < 0)
+            valid_1d = [s.change_pct for s in stock_details if s.change_pct is not None]
+            ret_1d = round(mean(valid_1d), 1) if valid_1d else None
+
+        # 1W
+        if tag_id in tag_weekly_map:
+            ret_1w = round(tag_weekly_map[tag_id].avg_return_pct, 1)
+        else:
+            ret_1w = round(mean(ret_1w_list), 1) if ret_1w_list else None
+
+        # Multi-period (return None when not enough data)
+        ret_1m = round(mean(ret_1m_list), 1) if ret_1m_list else None
+        ret_3m = round(mean(ret_3m_list), 1) if ret_3m_list else None
+        ret_6m = round(mean(ret_6m_list), 1) if ret_6m_list else None
+        ret_1y = round(mean(ret_1y_list), 1) if ret_1y_list else None
+        ret_2y = round(mean(ret_2y_list), 1) if ret_2y_list else None
+        drawdown_52w_val = round(mean(drawdown_list), 1) if drawdown_list else None
+
+        responses.append(
+            TagResponse(
+                id=tag_id,
+                label=label,
+                stock_count=count,
+                advancing_count=adv_count,
+                declining_count=dec_count,
+                drawdown_52w_high=drawdown_52w_val,
+                return_1d=ret_1d,
+                return_1w=ret_1w,
+                return_1m=ret_1m,
+                return_3m=ret_3m,
+                return_6m=ret_6m,
+                return_1y=ret_1y,
+                return_2y=ret_2y,
+                stocks=stock_details,
+            )
+        )
+
+    return responses
+
+
 @router.get("", response_model=list[TagResponse])
 async def list_tags(
     session: AsyncSession = Depends(get_session),
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(100, ge=1, le=200),
 ) -> list[TagResponse]:
-    """List all tags with their stock counts, sorted by popularity.
-
-    WHY sort by stock count?
-    - The most useful tags are the most common ones.
-    - Rare tags with 1 stock are less interesting for sector analysis.
-    """
+    """List all tags with their performance matrix and constituent stocks."""
     # Subquery: count stocks per tag.
     count_subq = (
         select(StockTag.tag_id, func.count(StockTag.stock_id).label("stock_count"))
@@ -56,10 +252,7 @@ async def list_tags(
     result = await session.exec(stmt)
     rows = list(result.all())
 
-    return [
-        TagResponse(id=row[0], label=row[1], stock_count=row[2])
-        for row in rows
-    ]
+    return await _enrich_tags_with_metrics(session, rows)
 
 
 @router.get("/{label}", response_model=TagResponse)
@@ -67,7 +260,7 @@ async def get_tag(
     label: str,
     session: AsyncSession = Depends(get_session),
 ) -> TagResponse:
-    """Get a single tag with its stock count."""
+    """Get a single tag with its performance matrix."""
     stmt = select(Tag).where(Tag.label == label.lower())
     result = await session.exec(stmt)
     tag = result.first()
@@ -82,6 +275,10 @@ async def get_tag(
     )
     count_result = await session.exec(count_stmt)
     stock_count = count_result.one()
+
+    enriched = await _enrich_tags_with_metrics(session, [(tag.id, tag.label, stock_count)])
+    if enriched:
+        return enriched[0]
 
     return TagResponse(id=tag.id, label=tag.label, stock_count=stock_count)
 

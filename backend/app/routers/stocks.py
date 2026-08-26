@@ -16,7 +16,8 @@ WHY Depends(get_session)?
 - In tests, you override get_session to inject a test DB.
 """
 
-from datetime import date
+from collections import defaultdict
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import func, select
@@ -36,37 +37,90 @@ router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 async def list_stocks(
     session: AsyncSession = Depends(get_session),
     skip: int = Query(0, ge=0, description="Pagination offset"),
-    limit: int = Query(50, ge=1, le=200, description="Page size"),
+    limit: int = Query(100, ge=1, le=200, description="Page size"),
 ) -> list[StockListItem]:
-    """List all tracked stocks with latest LTP and tags.
-
-    Paginated — defaults to 50 items per page, max 200.
-    """
+    """List all tracked stocks with latest LTP, tags, and multi-period performance matrix."""
     # Fetch stocks with pagination.
     stmt = select(Stock).order_by(Stock.symbol).offset(skip).limit(limit)
     result = await session.exec(stmt)
     stocks = list(result.all())
 
+    if not stocks:
+        return []
+
+    stock_ids = [s.id for s in stocks]
+
+    # Fetch tags for all these stocks in one query
+    tag_stmt = (
+        select(StockTag.stock_id, Tag.label)
+        .join(Tag, Tag.id == StockTag.tag_id)
+        .where(StockTag.stock_id.in_(stock_ids))
+    )
+    tag_result = await session.exec(tag_stmt)
+    tags_by_stock: dict[int, list[str]] = defaultdict(list)
+    for sid, lbl in tag_result.all():
+        tags_by_stock[sid].append(lbl)
+
+    # Fetch all snapshots for these stocks in one query
+    snap_stmt = (
+        select(DailySnapshot)
+        .where(DailySnapshot.stock_id.in_(stock_ids))
+        .order_by(DailySnapshot.snapshot_date.desc())
+    )
+    snap_res = await session.exec(snap_stmt)
+    snaps_by_stock: dict[int, list[DailySnapshot]] = defaultdict(list)
+    for s in snap_res.all():
+        snaps_by_stock[s.stock_id].append(s)
+
     items: list[StockListItem] = []
     for stock in stocks:
-        # Get latest snapshot for this stock.
-        snap_stmt = (
-            select(DailySnapshot)
-            .where(DailySnapshot.stock_id == stock.id)
-            .order_by(DailySnapshot.snapshot_date.desc())
-            .limit(1)
-        )
-        snap_result = await session.exec(snap_stmt)
-        latest = snap_result.first()
+        snaps = snaps_by_stock.get(stock.id, [])
+        tags = tags_by_stock.get(stock.id, [])
 
-        # Get tags for this stock.
-        tag_stmt = (
-            select(Tag.label)
-            .join(StockTag, StockTag.tag_id == Tag.id)
-            .where(StockTag.stock_id == stock.id)
+        if not snaps:
+            items.append(
+                StockListItem(
+                    symbol=stock.symbol,
+                    name=stock.name,
+                    sector=stock.sector,
+                    tags=tags,
+                )
+            )
+            continue
+
+        latest_snap = snaps[0]
+        ref_date = latest_snap.snapshot_date
+        valid_ltps = [s.ltp for s in snaps if s.ltp is not None]
+        max_ltp = max(valid_ltps) if valid_ltps else None
+
+        drawdown_52w = (
+            round(((latest_snap.ltp - max_ltp) / max_ltp) * 100, 1)
+            if (latest_snap.ltp is not None and max_ltp and max_ltp > 0)
+            else None
         )
-        tag_result = await session.exec(tag_stmt)
-        tags = list(tag_result.all())
+
+        def get_anchor_ltp(target_days: int, min_days: int, max_days: int) -> float | None:
+            candidates = [
+                s for s in snaps
+                if s.ltp is not None and min_days <= (ref_date - s.snapshot_date).days <= max_days
+            ]
+            if not candidates:
+                return None
+            target_d = ref_date - timedelta(days=target_days)
+            candidates.sort(key=lambda s: abs((s.snapshot_date - target_d).days))
+            return candidates[0].ltp
+
+        def calc_ret(past_val: float | None) -> float | None:
+            if latest_snap.ltp is not None and past_val is not None and past_val > 0:
+                return round(((latest_snap.ltp - past_val) / past_val) * 100, 2)
+            return None
+
+        ret_1w = calc_ret(get_anchor_ltp(7, 4, 12))
+        ret_1m = calc_ret(get_anchor_ltp(30, 20, 45))
+        ret_3m = calc_ret(get_anchor_ltp(90, 65, 115))
+        ret_6m = calc_ret(get_anchor_ltp(180, 140, 220))
+        ret_1y = calc_ret(get_anchor_ltp(365, 300, 420))
+        ret_2y = calc_ret(get_anchor_ltp(730, 650, 800))
 
         items.append(
             StockListItem(
@@ -74,8 +128,17 @@ async def list_stocks(
                 name=stock.name,
                 sector=stock.sector,
                 tags=tags,
-                ltp=latest.ltp if latest else None,
-                change_pct=latest.change_pct if latest else None,
+                ltp=latest_snap.ltp,
+                change_pct=latest_snap.change_pct,
+                drawdown_52w_high=drawdown_52w,
+                return_1d=latest_snap.change_pct,
+                return_1w=ret_1w,
+                return_1m=ret_1m,
+                return_3m=ret_3m,
+                return_6m=ret_6m,
+                return_1y=ret_1y,
+                return_2y=ret_2y,
+                volume=latest_snap.volume,
             )
         )
 
