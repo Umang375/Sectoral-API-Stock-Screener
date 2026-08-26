@@ -1,17 +1,19 @@
 /**
- * Tags page — lists all active tags sorted by popularity.
+ * Tags & Sectors Page — displays the full Sector Performance & Market Breadth Heatmap Table.
  * Server Component
  */
 
 import { getTags } from '@/lib/api';
-import Link from 'next/link';
+import SectorHeatmapTable from '@/components/SectorHeatmap/SectorHeatmapTable';
+
+export const dynamic = 'force-dynamic';
 
 export default async function TagsPage() {
   let tags = [];
   let error = null;
 
   try {
-    tags = await getTags(0, 100);
+    tags = await getTags(0, 200);
   } catch (err) {
     error = err.message;
   }
@@ -19,40 +21,28 @@ export default async function TagsPage() {
   return (
     <div>
       <div className="page-header">
-        <h2>Tags</h2>
-        <p>AI-generated sector cohorts sorted by popularity</p>
+        <h2>Top Sectors</h2>
+        <p>AI-classified industry cohorts, advance-decline breadth, and multi-period return heatmaps</p>
       </div>
 
       {error ? (
         <div className="empty-state">
           <div className="empty-icon">⚠️</div>
-          <p>{error}</p>
+          <p>Failed to load sector data: {error}</p>
         </div>
       ) : tags.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🏷️</div>
-          <p>No tags generated yet. Run a screener to start classifying stocks.</p>
+          <p>No sector tags generated yet. Run a screener to start classifying stocks.</p>
         </div>
       ) : (
-        <div className="tags-grid">
-          {tags.map((tag) => (
-            <Link 
-              href={`/tags/${encodeURIComponent(tag.label)}`} 
-              key={tag.id}
-              style={{ textDecoration: 'none' }}
-            >
-              <div className="tag-card">
-                <div className="tag-label">{tag.label}</div>
-                <div className="tag-meta">
-                  <span className="tag-stock-count">
-                    <strong>{tag.stock_count}</strong> tracked stocks
-                  </span>
-                  <span className="text-muted" style={{ fontSize: '0.8rem' }}>View returns →</span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <SectorHeatmapTable
+          sectors={tags}
+          title="Top Sectors"
+          subtitle={`Tracking ${tags.length} sector cohorts and constituent equities`}
+          showControls={true}
+          allowExpandAll={true}
+        />
       )}
     </div>
   );

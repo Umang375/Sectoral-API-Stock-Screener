@@ -1,0 +1,635 @@
+/*
+ * SECTOR & STOCK PERFORMANCE HEATMAP MATRIX STYLES
+ * Matches professional trading terminal aesthetic with contiguous end-to-end heatmap ribbons.
+ */
+
+/* ── Card & Container ────────────────────────────────────────── */
+.heatmap-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  margin-bottom: var(--space-8);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.heatmap-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.heatmap-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heatmap-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.heatmap-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ── Controls & Filter Bar ───────────────────────────────────── */
+.heatmap-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.heatmap-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 240px;
+  max-width: 320px;
+  flex: 1;
+}
+
+.heatmap-search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.heatmap-search-input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 8px 30px 8px 30px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.heatmap-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.heatmap-search-clear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.heatmap-search-clear:hover {
+  color: var(--text-primary);
+}
+
+.heatmap-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.filter-pill {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filter-pill:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filter-pill.active {
+  background: var(--accent-glow);
+  color: var(--accent-hover);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Table Layout ────────────────────────────────────────────── */
+.heatmap-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  background: #0d1117;
+}
+
+.heatmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 820px;
+}
+
+/* ── Table Headings ──────────────────────────────────────────── */
+.heatmap-table thead th {
+  padding: 10px 4px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111827;
+  user-select: none;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  white-space: nowrap;
+}
+
+.heatmap-table thead th:hover {
+  color: var(--text-primary);
+  background: #162032;
+}
+
+.heatmap-table thead th.sorted {
+  color: var(--accent-hover);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.th-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.th-content.center {
+  justify-content: center;
+}
+
+.th-content.right {
+  justify-content: flex-end;
+}
+
+.th-multiline {
+  line-height: 1.1;
+  text-align: center;
+}
+
+.sort-indicator {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent-hover);
+}
+
+/* Column Width Specifications */
+.col-sector-name {
+  width: 250px;
+  text-align: left;
+  padding-left: 16px !important;
+}
+
+.col-stock-symbol {
+  width: 240px;
+  text-align: left;
+  padding-left: 16px !important;
+}
+
+.col-stock-ltp {
+  width: 90px;
+  text-align: right;
+  padding-right: 12px !important;
+}
+
+.col-stock-vol {
+  width: 100px;
+  text-align: right;
+  padding-right: 16px !important;
+}
+
+.col-weight {
+  width: 110px;
+  text-align: center;
+}
+
+.col-52w {
+  width: 72px;
+  text-align: center;
+}
+
+.col-return {
+  width: 62px;
+  text-align: center;
+}
+
+/* ── Table Rows & Dotted Dividers ────────────────────────────── */
+.heatmap-row {
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.18);
+  height: 38px;
+}
+
+.heatmap-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.heatmap-row.expanded {
+  background: rgba(99, 102, 241, 0.04);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.heatmap-row td {
+  padding: 6px 4px;
+  vertical-align: middle;
+}
+
+/* ── Sector & Stock Name Columns ─────────────────────────────── */
+.cell-sector-name,
+.cell-stock-symbol {
+  padding-left: 16px !important;
+}
+
+.sector-label-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accordion-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.accordion-toggle-btn:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.sector-name-link {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: color var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sector-name-link:hover {
+  color: var(--accent-hover);
+}
+
+.cell-stock-ltp {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding-right: 12px !important;
+}
+
+.cell-stock-vol {
+  text-align: right;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  padding-right: 16px !important;
+  font-size: 0.8rem;
+}
+
+.stock-cell-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stock-symbol-link {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.stock-title {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--accent-hover);
+}
+
+.stock-subtitle {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.stock-mini-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* ── Advance / Decline Weight Bar ────────────────────────────── */
+.cell-weight {
+  text-align: center;
+  padding: 6px 8px !important;
+}
+
+.ad-container {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 86px;
+  margin: 0 auto;
+}
+
+.ad-bar-track {
+  display: flex;
+  height: 5px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ad-bar-dec {
+  height: 100%;
+  background: #ef4444;
+}
+
+.ad-bar-adv {
+  height: 100%;
+  background: #10b981;
+}
+
+.ad-bar-empty {
+  height: 100%;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ad-counts-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ad-count-dec {
+  color: #ef4444;
+}
+
+.ad-count-adv {
+  color: #10b981;
+}
+
+/* ── Matrix Heatmap Cells (Joined End-to-End, Zero Gap) ─────── */
+.cell-matrix {
+  text-align: center;
+  padding: 0 !important;
+  height: 38px;
+  vertical-align: middle;
+}
+
+.matrix-cell-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 38px;
+  font-family: var(--font-mono);
+  font-size: 0.825rem;
+  font-weight: 700;
+  border-radius: 0;
+  letter-spacing: -0.01em;
+  box-shadow: none;
+  border-right: 1px solid rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+}
+
+/* NO pop / transform on hover */
+.matrix-cell-badge:hover {
+  transform: none !important;
+}
+
+.matrix-cell-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 38px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+}
+
+/* ── Heatmap Return Color Classes ────────────────────────────── */
+.heatmap-pos-high { background-color: #15803d !important; color: #ffffff !important; }
+.heatmap-pos-mid  { background-color: #4ade80 !important; color: #052e16 !important; }
+.heatmap-pos-low  { background-color: #bbf7d0 !important; color: #064e3b !important; }
+.heatmap-neutral  { background-color: #fef3c7 !important; color: #78350f !important; }
+.heatmap-neg-low  { background-color: #fee2e2 !important; color: #7f1d1d !important; }
+.heatmap-neg-mid  { background-color: #fca5a5 !important; color: #7f1d1d !important; }
+.heatmap-neg-high { background-color: #991b1b !important; color: #ffffff !important; }
+
+/* ── 52W High Drawdown Color Classes ─────────────────────────── */
+.drawdown-high     { background-color: #fef3c7 !important; color: #78350f !important; }
+.drawdown-mild     { background-color: #fca5a5 !important; color: #7f1d1d !important; }
+.drawdown-moderate { background-color: #8e2525 !important; color: #ffffff !important; }
+.drawdown-deep     { background-color: #581c1c !important; color: #ffffff !important; }
+
+/* ── Expanded Subtable (Constituent Stocks) ───────────────────── */
+.subtable-container-row {
+  background: #090d16;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.18);
+}
+
+.subtable-container-cell {
+  padding: var(--space-4) var(--space-6) !important;
+  border-left: 3px solid var(--accent);
+}
+
+.subtable-wrapper {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.subtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.subtable thead th {
+  background: var(--bg-elevated);
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.subtable-th-symbol { text-align: left; }
+.subtable-th-ltp { text-align: right; }
+.subtable-th-drawdown { text-align: center; }
+.subtable-th-change { text-align: center; }
+.subtable-th-vol { text-align: right; }
+
+.subtable-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.subtable-row:last-child {
+  border-bottom: none;
+}
+
+.subtable-row:hover {
+  background: var(--bg-elevated);
+}
+
+.subtable td {
+  padding: 8px 12px;
+}
+
+.subtable-td-symbol {
+  text-align: left;
+}
+
+.subtable-stock-link {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+}
+
+.subtable-symbol {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-hover);
+}
+
+.subtable-name {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.subtable-td-ltp {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.subtable-td-drawdown {
+  text-align: center;
+}
+
+.subtable-td-change {
+  text-align: center;
+}
+
+.subtable-td-vol {
+  text-align: right;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.subtable-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 54px;
+}
+
+.subtable-empty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ── Footer & Expand Toggle Buttons ─────────────────────────── */
+.heatmap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.heatmap-expand-btn,
+.heatmap-accordion-all-btn {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.heatmap-expand-btn:hover,
+.heatmap-accordion-all-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.heatmap-empty-state {
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+  color: var(--text-muted);
+}
+
+.heatmap-empty-state .empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.4;
+  margin-bottom: var(--space-2);
+}

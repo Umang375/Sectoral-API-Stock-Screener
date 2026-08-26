@@ -46,10 +46,10 @@ export default async function TagDetailPage({ params }) {
 
       <div className="card">
         <div className="returns-title">
-          <Link href="/tags" className="back-btn" style={{ textDecoration: 'none' }}>
-            ← Back to Tags
+          <Link href="/tags" className="back-btn tags-link-clean">
+            ← Back to Tags & Heatmap
           </Link>
-          <span style={{ marginLeft: '12px' }}>Weekly Returns History</span>
+          <span className="tag-returns-heading">Weekly Returns History</span>
         </div>
 
         {error ? (
@@ -61,7 +61,7 @@ export default async function TagDetailPage({ params }) {
           <div className="empty-state">
             <div className="empty-icon">📊</div>
             <p>No historical returns data for this cohort yet.</p>
-            <p className="text-muted" style={{ marginTop: 8, fontSize: '0.8rem' }}>
+            <p className="text-muted error-muted-note">
               Returns are calculated every Monday at 7:00 AM.
             </p>
           </div>
@@ -125,15 +125,15 @@ export default async function TagDetailPage({ params }) {
         )}
       </div>
 
-      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+      <div className="card card-mt">
         <div className="returns-title">Related Stocks</div>
         {!stocksData.length ? (
           <div className="empty-state"><p>No related stocks found.</p></div>
         ) : stocksData.map((stock) => (
-          <Link key={stock.symbol} href={`/stocks?q=${encodeURIComponent(stock.symbol)}`} className="performer-item" style={{ textDecoration: 'none' }}>
+          <Link key={stock.symbol} href={`/stocks?q=${encodeURIComponent(stock.symbol)}`} className="performer-item link-clean">
             <div className="performer-info">
               <span className="performer-symbol">{stock.symbol}</span>
-              <span className="text-muted" style={{ fontSize: '0.75rem' }}>{stock.name}</span>
+              <span className="text-muted subtext-small">{stock.name}</span>
             </div>
             <span className={stock.change_pct >= 0 ? 'text-green' : 'text-red'}>
               {stock.change_pct == null ? '—' : `${stock.change_pct > 0 ? '+' : ''}${stock.change_pct.toFixed(2)}%`}
@@ -142,7 +142,7 @@ export default async function TagDetailPage({ params }) {
         ))}
       </div>
 
-      <div className="card" style={{ marginTop: 'var(--space-6)' }}>
+      <div className="card card-mt">
         <div className="returns-title">Recent End-of-Day Sector Performance</div>
         {!dailyReturnsData?.returns?.length ? (
           <div className="empty-state"><p>No daily sector data yet.</p></div>
