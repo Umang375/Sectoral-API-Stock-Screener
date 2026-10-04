@@ -20,9 +20,11 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.constants.sectors import PREDEFINED_SECTORS
 from app.database import get_session
 from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
@@ -33,15 +35,26 @@ from app.models.returns import WeeklyReturns
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 
 
+class SectorSummary(BaseModel):
+    """Summary of stocks classified under a predefined sector."""
+    name: str
+    stock_count: int
+
+
+
 @router.get("", response_model=list[StockListItem])
 async def list_stocks(
     session: AsyncSession = Depends(get_session),
+    sector: str | None = Query(None, description="Filter stocks by classified sector"),
     skip: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(100, ge=1, le=200, description="Page size"),
 ) -> list[StockListItem]:
     """List all tracked stocks with latest LTP, tags, and multi-period performance matrix."""
-    # Fetch stocks with pagination.
-    stmt = select(Stock).order_by(Stock.symbol).offset(skip).limit(limit)
+    # Fetch stocks with pagination and optional sector filter.
+    stmt = select(Stock)
+    if sector:
+        stmt = stmt.where(func.lower(Stock.sector) == sector.lower().strip())
+    stmt = stmt.order_by(Stock.symbol).offset(skip).limit(limit)
     result = await session.exec(stmt)
     stocks = list(result.all())
 
@@ -143,6 +156,27 @@ async def list_stocks(
         )
 
     return items
+
+
+@router.get("/sectors", response_model=list[SectorSummary])
+async def list_sectors(
+    session: AsyncSession = Depends(get_session),
+) -> list[SectorSummary]:
+    """List predefined sectors with current stock counts."""
+    stmt = (
+        select(Stock.sector, func.count(Stock.id))
+        .where(Stock.sector.is_not(None))
+        .group_by(Stock.sector)
+    )
+    result = await session.exec(stmt)
+    counts = {s: c for s, c in result.all() if s}
+
+    summaries = [
+        SectorSummary(name=sec, stock_count=counts.get(sec, 0))
+        for sec in PREDEFINED_SECTORS
+    ]
+    summaries.sort(key=lambda x: (-x.stock_count, x.name))
+    return summaries
 
 
 @router.get("/{symbol}", response_model=StockResponse)

@@ -1,4 +1,4 @@
-"""Gemini-powered sector/industry tag generator with Redis caching.
+"""Gemini-powered sector/industry tag generator and sector classifier with Redis caching.
 
 PATTERN: Cache-Aside (Lazy Loading)
 ────────────────────────────────────
@@ -8,26 +8,29 @@ PATTERN: Cache-Aside (Lazy Loading)
 
 WHY this 3-tier approach?
 - Gemini API calls cost rate-limit tokens (10 RPM, 1400 RPD on free tier).
-- Most stocks don't change industry between runs.  "Reliance Industries"
+- Most stocks don't change industry between runs. "Reliance Industries"
   is always "oil & gas, petrochemicals, telecom" — no need to ask Gemini daily.
 - Redis check: ~0.1ms.  DB check: ~2ms.  Gemini call: ~500ms.
   The caching avoids the expensive path 95%+ of the time.
 
 WHY re-tag if LTP changes > 5%?
 - A >5% LTP move *might* indicate a business pivot, sector re-classification,
-  or merger.  In practice, this rarely triggers for stable large-caps, but
+  or merger. In practice, this rarely triggers for stable large-caps, but
   catches edge cases like a company spinning off a division.
 - The threshold is configurable via TAG_CHANGE_THRESHOLD in settings.
 
-TAG PHILOSOPHY:
-- Tags describe the BUSINESS DOMAIN: "auto ancillaries", "waste management"
-- NOT market behaviour: no "momentum play", "breakout candidate"
-- Exactly 3 tags per stock per screener — consistent, predictable.
+TAG & SECTOR PHILOSOPHY:
+- Sector: Exactly 1 primary category selected strictly from the predefined
+  list of 80+ standard equity sectors (e.g. "Auto Ancillary", "IT Large Cap").
+- Tags: Exactly 3 lowercase tags describing the granular BUSINESS DOMAIN:
+  "auto ancillaries", "EV components", "batteries".
+- NOT market behaviour: no "momentum play", "breakout candidate".
 """
 
 import json
 import logging
 from datetime import date
+from typing import Any
 
 from google import genai
 from sqlmodel import select
@@ -35,6 +38,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 import redis.asyncio as aioredis
 
 from app.config import get_settings
+from app.constants.sectors import (
+    FALLBACK_SECTOR,
+    format_sectors_for_prompt,
+    normalize_sector,
+)
 from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
 from app.utils.rate_limiter import RateLimiter
@@ -43,9 +51,10 @@ logger = logging.getLogger(__name__)
 
 
 # ── Prompt template ──────────────────────────────────────────────────────
-TAGGING_PROMPT = """You are a stock market sector classifier for the Indian equity market.
-Given a stock's name, symbol, and available data, generate exactly 3 tags that describe
-the BUSINESS DOMAIN and INDUSTRY of this company.
+UNIFIED_TAGGING_PROMPT = """You are a stock market sector and industry classifier for the Indian equity market.
+Given a list of stocks with their available data:
+1. Select EXACTLY ONE primary sector for each stock from the PREDEFINED SECTORS list below.
+2. Generate EXACTLY 3 tags that describe the specific BUSINESS DOMAIN and sub-industry of the company.
 
 Tags should be specific industry sub-sectors like:
 - "auto ancillaries", "EV components", "two-wheelers"
@@ -56,50 +65,38 @@ Tags should be specific industry sub-sectors like:
 - "cement", "steel", "infrastructure"
 
 Do NOT generate tags about stock behavior (no "momentum", "breakout", "value pick").
-Return ONLY a JSON array of exactly 3 lowercase strings.  No markdown, no explanation.
 
-Stock: {name} ({symbol})
-Sector: {sector}
-LTP: ₹{ltp} | Change: {change_pct}%
-Screener: {screener_name}"""
+PREDEFINED SECTORS (Choose exactly one for each stock):
+{predefined_sectors}
 
-BATCH_TAGGING_PROMPT = """You are a stock market sector classifier for the Indian equity market.
-Given a list of stocks with their available data, generate exactly 3 tags for each stock that describe
-the BUSINESS DOMAIN and INDUSTRY of the company.
-
-Tags should be specific industry sub-sectors like:
-- "auto ancillaries", "EV components", "two-wheelers"
-- "waste management", "water treatment", "renewable energy"
-- "private banking", "insurance", "NBFCs"
-- "IT services", "SaaS", "digital payments"
-- "specialty chemicals", "agrochemicals", "pharmaceuticals"
-- "cement", "steel", "infrastructure"
-
-Do NOT generate tags about stock behavior (no "momentum", "breakout", "value pick").
-Return ONLY a valid JSON object mapping each stock symbol to an array of exactly 3 lowercase strings. No markdown, no explanation.
+Return ONLY a valid JSON object mapping each stock symbol to an object with "sector" and "tags". No markdown code fences, no explanation.
 
 Example Output format:
 {{
-  "RELIANCE": ["oil & gas", "petrochemicals", "telecom"],
-  "TCS": ["it services", "cloud computing", "saas"]
+  "RELIANCE": {{
+    "sector": "Oil Refiners",
+    "tags": ["oil & gas", "petrochemicals", "telecom"]
+  }},
+  "TCS": {{
+    "sector": "IT Large Cap",
+    "tags": ["it services", "cloud computing", "saas"]
+  }}
 }}
+
+Screener: {screener_name}
 
 Stocks to tag:
 {stocks_data}"""
 
 
 class GeminiTagger:
-    """Generates sector/industry tags for stocks using Google Gemini.
+    """Generates sector/industry tags and classifies stocks using Google Gemini.
 
     Manages the full lifecycle:
     1. Cache check (Redis → DB)
-    2. Change detection (skip if stock hasn't moved significantly)
+    2. Change detection (skip if stock hasn't moved significantly and already has sector)
     3. Gemini API call with rate limiting
-    4. Tag normalisation, DB upsert, and Redis caching
-
-    Usage:
-        tagger = GeminiTagger(rate_limiter, redis_client)
-        tags = await tagger.generate_tags(stock, screener_name, screener_id, session)
+    4. Tag normalisation, sector validation, DB upsert, and Redis caching
     """
 
     def __init__(self, rate_limiter: RateLimiter, redis: aioredis.Redis) -> None:
@@ -124,7 +121,7 @@ class GeminiTagger:
         screener_id: int,
         session: AsyncSession,
     ) -> list[str]:
-        """Generate (or retrieve cached) sector tags for a stock.
+        """Generate (or retrieve cached) sector tags and classification for a stock.
 
         Returns:
             List of 3 lowercase tag strings.
@@ -135,12 +132,15 @@ class GeminiTagger:
         cached = await self._redis.get(cache_key)
         if cached:
             logger.debug("Cache HIT for %s (Redis)", stock.symbol)
-            return json.loads(cached)
+            cached_data = json.loads(cached)
+            if isinstance(cached_data, dict):
+                return cached_data.get("tags", [])
+            return cached_data
 
         # ── Tier 2: DB lookup + change detection ─────────────────────────
         existing_tags = await self._get_existing_tags(stock.id, session)
 
-        if existing_tags:
+        if existing_tags and stock.sector:
             # Check if stock has changed enough to warrant re-tagging.
             last_ltp = await self._get_last_ltp(stock.id, session)
             if last_ltp and last_ltp > 0:
@@ -152,23 +152,25 @@ class GeminiTagger:
                         stock.symbol,
                         ltp_change * 100,
                     )
-                    await self._cache_tags(cache_key, existing_tags)
+                    await self._cache_tags(
+                        cache_key,
+                        {"tags": existing_tags, "sector": stock.sector},
+                    )
                     return existing_tags
 
-        # ── Tier 3: Call Gemini ───────────────────────────────────────────
-        logger.info("Calling Gemini for %s (new stock or LTP changed)", stock.symbol)
-        new_tags = await self._call_gemini(
-            stock=stock,
-            ltp=current_ltp,
-            change_pct=change_pct,
+        # ── Tier 3: Call Gemini via unified batch pipeline ───────────────
+        logger.info(
+            "Calling Gemini for %s via unified pipeline (new stock, unclassified sector, or LTP changed)",
+            stock.symbol,
+        )
+        await self.generate_tags_batch(
+            stocks_info=[(stock, current_ltp, change_pct)],
             screener_name=screener_name,
+            screener_id=screener_id,
+            session=session,
         )
 
-        # ── Save to DB + Redis ───────────────────────────────────────────
-        await self._upsert_tags(stock.id, screener_id, new_tags, session)
-        await self._cache_tags(cache_key, new_tags)
-
-        return new_tags
+        return await self._get_existing_tags(stock.id, session)
 
     async def generate_tags_batch(
         self,
@@ -177,8 +179,8 @@ class GeminiTagger:
         screener_id: int,
         session: AsyncSession,
     ) -> None:
-        """Batch process tags for multiple stocks.
-        
+        """Batch process tags and sector classification for multiple stocks.
+
         Args:
             stocks_info: List of (Stock, current_ltp, change_pct)
         """
@@ -196,7 +198,7 @@ class GeminiTagger:
             # ── Tier 2: DB lookup + change detection ─────────────────────────
             existing_tags = await self._get_existing_tags(stock.id, session)
 
-            if existing_tags:
+            if existing_tags and stock.sector:
                 last_ltp = await self._get_last_ltp(stock.id, session)
                 if last_ltp and last_ltp > 0:
                     ltp_change = abs(current_ltp - last_ltp) / last_ltp
@@ -206,7 +208,10 @@ class GeminiTagger:
                             stock.symbol,
                             ltp_change * 100,
                         )
-                        await self._cache_tags(cache_key, existing_tags)
+                        await self._cache_tags(
+                            cache_key,
+                            {"tags": existing_tags, "sector": stock.sector},
+                        )
                         continue
 
             # Needs Gemini call
@@ -220,7 +225,7 @@ class GeminiTagger:
         for i in range(0, len(needs_gemini), batch_size):
             batch = needs_gemini[i:i + batch_size]
             logger.info("Calling Gemini for batch of %d stocks", len(batch))
-            
+
             batch_results = await self._call_gemini_batch(
                 stocks_info=batch,
                 screener_name=screener_name,
@@ -229,80 +234,30 @@ class GeminiTagger:
             # ── Save to DB + Redis ───────────────────────────────────────────
             for stock, _, _ in batch:
                 if stock.symbol in batch_results:
-                    tags = batch_results[stock.symbol]
+                    res = batch_results[stock.symbol]
+                    tags = res["tags"]
+                    sector = res["sector"]
+
+                    stock.sector = sector
+                    session.add(stock)
+
                     cache_key = f"stock:tags:{stock.symbol}:{screener_id}"
                     await self._upsert_tags(stock.id, screener_id, tags, session)
-                    await self._cache_tags(cache_key, tags)
+                    await self._cache_tags(
+                        cache_key,
+                        {"tags": tags, "sector": sector},
+                    )
+
+            await session.commit()
 
     # ── Private: Gemini API ──────────────────────────────────────────────
-
-    async def _call_gemini(
-        self,
-        stock: Stock,
-        ltp: float,
-        change_pct: float | None,
-        screener_name: str,
-    ) -> list[str]:
-        """Call Gemini API with rate limiting and response parsing.
-
-        Retries up to 3 times with exponential backoff on transient errors.
-        """
-        prompt = TAGGING_PROMPT.format(
-            name=stock.name,
-            symbol=stock.symbol,
-            sector=stock.sector or "Unknown",
-            ltp=ltp,
-            change_pct=change_pct or 0.0,
-            screener_name=screener_name,
-        )
-
-        try:
-            # Wait for rate limit token before calling.
-            await self._rate_limiter.acquire()
-
-            response = await self._client.aio.models.generate_content(
-                model=self._model_name,
-                contents=prompt,
-            )
-            raw_text = response.text.strip()
-            tags = self._parse_tags(raw_text)
-            logger.info("Gemini tags for %s: %s", stock.symbol, tags)
-            return tags
-
-        except Exception:
-            logger.exception("Gemini API call failed for %s", stock.symbol)
-            # Return a generic fallback so the pipeline doesn't break.
-            return [stock.sector.lower() if stock.sector else "uncategorised"]
-
-    @staticmethod
-    def _parse_tags(raw_text: str) -> list[str]:
-        """Parse Gemini's response into exactly 3 normalised tag strings.
-
-        Gemini should return a JSON array, but sometimes wraps it in
-        markdown code fences.  This handles both cases.
-        """
-        # Strip markdown code fences if present: ```json ... ```
-        cleaned = raw_text.strip().strip("`")
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:].strip()
-
-        try:
-            tags = json.loads(cleaned)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse Gemini response as JSON: %s", raw_text)
-            # Last resort: split by comma/newline.
-            tags = [t.strip().strip('"').strip("'") for t in raw_text.split(",")]
-
-        # Normalise: lowercase, strip, take exactly 3.
-        tags = [str(t).strip().lower() for t in tags if str(t).strip()]
-        return tags[:3]
 
     async def _call_gemini_batch(
         self,
         stocks_info: list[tuple[Stock, float, float | None]],
         screener_name: str,
-    ) -> dict[str, list[str]]:
-        """Call Gemini API for a batch of stocks and return mappings."""
+    ) -> dict[str, dict[str, Any]]:
+        """Call Gemini API for a batch of 1 to N stocks and return mappings."""
         stocks_data = []
         for stock, ltp, change_pct in stocks_info:
             stocks_data.append(
@@ -310,9 +265,10 @@ class GeminiTagger:
                 f"LTP: ₹{ltp}, Change: {change_pct or 0.0}%"
             )
 
-        prompt = BATCH_TAGGING_PROMPT.format(
+        prompt = UNIFIED_TAGGING_PROMPT.format(
             screener_name=screener_name,
-            stocks_data="\n".join(stocks_data)
+            stocks_data="\n".join(stocks_data),
+            predefined_sectors=format_sectors_for_prompt(),
         )
 
         try:
@@ -326,36 +282,68 @@ class GeminiTagger:
             return self._parse_tags_batch(raw_text, [s[0] for s in stocks_info])
         except Exception:
             logger.exception("Gemini batch API call failed")
-            # Fallback
-            result = {}
+            result: dict[str, dict[str, Any]] = {}
             for stock, _, _ in stocks_info:
-                result[stock.symbol] = [stock.sector.lower() if stock.sector else "uncategorised"]
+                sec = normalize_sector(stock.sector)
+                result[stock.symbol] = {
+                    "sector": sec,
+                    "tags": [sec.lower()],
+                }
             return result
 
     @staticmethod
-    def _parse_tags_batch(raw_text: str, stocks: list[Stock]) -> dict[str, list[str]]:
-        """Parse Gemini's batch response into a dict of exactly 3 normalised tags per stock."""
+    def _parse_tags_batch(
+        raw_text: str, stocks: list[Stock]
+    ) -> dict[str, dict[str, Any]]:
+        """Parse Gemini's batch response into a dict of {sector, tags} per stock."""
         cleaned = raw_text.strip().strip("`")
         if cleaned.startswith("json"):
             cleaned = cleaned[4:].strip()
 
-        result = {}
+        result: dict[str, dict[str, Any]] = {}
         try:
             parsed_json = json.loads(cleaned)
             for stock in stocks:
                 if stock.symbol in parsed_json:
-                    tags = parsed_json[stock.symbol]
-                    if not isinstance(tags, list):
-                        continue
-                    tags = [str(t).strip().lower() for t in tags if str(t).strip()]
-                    result[stock.symbol] = tags[:3]
+                    item = parsed_json[stock.symbol]
+                    if isinstance(item, dict):
+                        raw_sector = item.get("sector", stock.sector)
+                        raw_tags = item.get("tags", [])
+                        tags = (
+                            [str(t).strip().lower() for t in raw_tags if str(t).strip()]
+                            if isinstance(raw_tags, list)
+                            else []
+                        )
+                    elif isinstance(item, list):
+                        raw_sector = stock.sector
+                        tags = [str(t).strip().lower() for t in item if str(t).strip()]
+                    else:
+                        raw_sector = stock.sector
+                        tags = []
+
+                    sector = normalize_sector(raw_sector)
+                    if not tags:
+                        tags = [sector.lower()]
+
+                    result[stock.symbol] = {
+                        "sector": sector,
+                        "tags": tags[:3],
+                    }
                 else:
-                    result[stock.symbol] = [stock.sector.lower() if stock.sector else "uncategorised"]
+                    sec = normalize_sector(stock.sector)
+                    result[stock.symbol] = {
+                        "sector": sec,
+                        "tags": [sec.lower()],
+                    }
             return result
         except json.JSONDecodeError:
             logger.warning("Failed to parse Gemini batch response as JSON: %s", raw_text)
             for stock in stocks:
-                result[stock.symbol] = [stock.sector.lower() if stock.sector else "uncategorised"]
+                sec = normalize_sector(stock.sector)
+                result[stock.symbol] = {
+                    "sector": sec,
+                    "tags": [sec.lower()],
+                }
             return result
 
     # ── Private: DB operations ───────────────────────────────────────────
@@ -436,6 +424,6 @@ class GeminiTagger:
 
     # ── Private: Redis caching ───────────────────────────────────────────
 
-    async def _cache_tags(self, key: str, tags: list[str]) -> None:
-        """Store tags in Redis with TTL."""
-        await self._redis.setex(key, self._cache_ttl, json.dumps(tags))
+    async def _cache_tags(self, key: str, payload: list[str] | dict[str, Any]) -> None:
+        """Store tags and sector classification in Redis with TTL."""
+        await self._redis.setex(key, self._cache_ttl, json.dumps(payload))

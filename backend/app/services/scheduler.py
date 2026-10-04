@@ -23,6 +23,7 @@ CAVEAT: Render free tier spins down after 15 min of inactivity.
   Use an external pinger (cron-job.org) to keep the service awake.
 """
 
+import asyncio
 import logging
 from datetime import date, timedelta
 
@@ -38,6 +39,7 @@ from app.models.stock import DailySnapshot, Stock
 from app.redis_client import get_redis
 from app.services.chartlink_scraper import ChartlinkScraper
 from app.services.gemini_tagger import GeminiTagger
+from app.services.history_fetcher import backfill_stocks_in_background
 from app.services.returns_calculator import ReturnsCalculator
 from app.utils.rate_limiter import RateLimiter
 
@@ -85,6 +87,7 @@ async def daily_screener_fetch() -> None:
 
                 today = date.today()
                 stocks_info = []
+                new_stocks_info: list[tuple[int, str]] = []
 
                 for scraped in scraped_stocks:
                     if not scraped.symbol:
@@ -102,6 +105,7 @@ async def daily_screener_fetch() -> None:
                         )
                         session.add(stock)
                         await session.flush()  # assigns stock.id
+                        new_stocks_info.append((stock.id, stock.symbol))
 
                     # ── Save DailySnapshot ───────────────────────────────
                     # Check for existing snapshot (upsert).
@@ -147,6 +151,16 @@ async def daily_screener_fetch() -> None:
                         logger.exception("Batch tagging failed for screener %s", screener_row.name)
 
                 await session.commit()
+
+                # Queue background history backfill for new stocks (2-year daily prices)
+                if new_stocks_info:
+                    asyncio.create_task(
+                        backfill_stocks_in_background(
+                            stocks_to_backfill=new_stocks_info,
+                            screener_id=screener_row.id,
+                        )
+                    )
+
                 logger.info(
                     "Screener '%s' complete: %d stocks processed",
                     screener_row.name,

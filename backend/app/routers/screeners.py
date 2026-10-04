@@ -30,6 +30,7 @@ from app.models.stock import DailySnapshot, Stock
 from app.redis_client import get_redis
 from app.services.chartlink_scraper import ChartlinkScraper, ScrapedStock
 from app.services.gemini_tagger import GeminiTagger
+from app.services.history_fetcher import backfill_stocks_in_background
 from app.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -215,6 +216,7 @@ async def run_screener(
 
     today = date.today()
     tagged_count = 0
+    new_stocks_info: list[tuple[int, str]] = []
 
     for stock_data in scraped:
         if not stock_data.symbol:
@@ -229,6 +231,7 @@ async def run_screener(
             stock = Stock(symbol=stock_data.symbol, name=stock_data.name)
             session.add(stock)
             await session.flush()
+            new_stocks_info.append((stock.id, stock.symbol))
 
         # Upsert snapshot.
         snap_stmt = select(DailySnapshot).where(
@@ -270,6 +273,14 @@ async def run_screener(
         screener_id=screener.id
     )
 
+    # Queue background history backfill for new stocks (2-year daily prices)
+    if new_stocks_info:
+        background_tasks.add_task(
+            backfill_stocks_in_background,
+            stocks_to_backfill=new_stocks_info,
+            screener_id=screener.id,
+        )
+
     return RunResult(
         screener=screener.name,
         stocks_fetched=len(scraped),
@@ -307,6 +318,7 @@ async def upload_csv(
 
     today = date.today()
     tagged_count = 0
+    new_stocks_info: list[tuple[int, str]] = []
 
     for stock_data in scraped:
         if not stock_data.symbol:
@@ -321,6 +333,7 @@ async def upload_csv(
             stock = Stock(symbol=stock_data.symbol, name=stock_data.name)
             session.add(stock)
             await session.flush()
+            new_stocks_info.append((stock.id, stock.symbol))
 
         # Save snapshot.
         session.add(
@@ -346,6 +359,14 @@ async def upload_csv(
         screener_name=screener.name,
         screener_id=screener.id
     )
+
+    # Queue background history backfill for new stocks (2-year daily prices)
+    if new_stocks_info:
+        background_tasks.add_task(
+            backfill_stocks_in_background,
+            stocks_to_backfill=new_stocks_info,
+            screener_id=screener.id,
+        )
 
     return RunResult(
         screener=screener.name,
