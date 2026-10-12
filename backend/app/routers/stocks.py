@@ -103,8 +103,11 @@ async def list_stocks(
 
         latest_snap = snaps[0]
         ref_date = latest_snap.snapshot_date
-        valid_ltps = [s.ltp for s in snaps if s.ltp is not None]
-        max_ltp = max(valid_ltps) if valid_ltps else None
+        valid_52w_ltps = [
+            s.ltp for s in snaps
+            if s.ltp is not None and 0 <= (ref_date - s.snapshot_date).days <= 365
+        ]
+        max_ltp = max(valid_52w_ltps) if valid_52w_ltps else None
 
         drawdown_52w = (
             round(((latest_snap.ltp - max_ltp) / max_ltp) * 100, 1)

@@ -45,7 +45,7 @@ Indian equity market investors use screeners on Chartlink to identify stocks mat
 Build a Python backend system that:
 
 1. **Ingests** daily stock screener data from Chartlink (automated POST simulation + webhook alerts + CSV fallback)
-2. **Tags** each stock with up to 3 AI-generated sector/industry labels using the Gemini 3.5 Flash free-tier API
+2. **Tags** each stock with up to 3 AI-generated sector/industry labels using the Gemini 3.8 Flash free-tier API
 3. **Caches** tags in Redis to avoid redundant API calls
 4. **Calculates** weekly LTP returns for individual stocks and tag-based cohorts
 5. **Serves** the data via a FastAPI REST API consumed by a basic Next.js frontend
@@ -103,7 +103,7 @@ Chartlink Screener
 | ORM | SQLModel | Latest | SQLAlchemy + Pydantic hybrid models |
 | Migrations | Alembic | Latest | Database schema versioning |
 | Cache | Redis | 7+ | Tag caching + rate limiting |
-| AI Model | Gemini 3.5 Flash | Free Tier | Sector/industry tag generation |
+| AI Model | Gemini 3.8 Flash | Free Tier | Sector/industry tag generation |
 | HTTP Client | httpx | Latest | Async HTTP for scraping + API calls |
 | Scheduler | APScheduler | Latest | In-process cron job scheduler |
 | Data Validation | Pydantic v2 | Latest | Request/response schema validation |
@@ -132,18 +132,18 @@ The following models were evaluated for sector/industry tag generation:
 
 | Model | Access Method | Speed | JSON Output Quality | Free Tier | Verdict |
 |-------|-------------|-------|-------------------|-----------|---------|
-| **Gemini 3.5 Flash** | Google AI Studio API | Fastest | Excellent | ~10-15 RPM, ~1500 RPD | **Selected** |
-| Gemini 3.1 Flash-Lite | Google AI Studio API | Fast | Good | Shared limits | Backup option |
-| Gemma 4 (API) | Google AI Studio API | Fast | Good | Same shared limits | No advantage over Gemini 3.5 |
+| **Gemini 3.8 Flash** | Google AI Studio API | Fastest | Excellent | ~10-15 RPM, ~1500 RPD | **Selected** |
+| Gemini 3.5 Flash-Lite | Google AI Studio API | Fast | Good | Shared limits | Backup option |
+| Gemma 4 (API) | Google AI Studio API | Fast | Good | Same shared limits | No advantage over Gemini 3.8 |
 | Gemma 4 (Self-hosted) | Own GPU | Varies | Good | No API cost, hardware cost | Overkill for this scale |
 | Gemini 2.0 Flash | Deprecated | — | — | — | Do not use |
 
-**Why Gemini 3.5 Flash over Gemma 4?**
+**Why Gemini 3.8 Flash over Gemma 4?**
 
 - Gemini 2.0 Flash was **deprecated on June 1, 2026**. Do not use it.
-- Gemma 4 is available via the same Google AI Studio API, meaning it **shares the same free-tier quota** as Gemini 3.5 Flash. There is no advantage to using Gemma via API.
+- Gemma 4 is available via the same Google AI Studio API, meaning it **shares the same free-tier quota** as Gemini 3.8 Flash. There is no advantage to using Gemma via API.
 - Self-hosting Gemma 4 requires a GPU server (the 12B model needs ~16GB VRAM). This only makes sense for data privacy or extremely high volume — neither applies at 100–1000 users with under 500 stocks/day.
-- Gemini 3.5 Flash is the **newest, fastest, and best at following structured JSON output prompts** — exactly what we need for tag generation.
+- Gemini 3.8 Flash is the **newest, fastest, and best at following structured JSON output prompts** — exactly what we need for tag generation.
 
 ### 2.5 Database Decision: Why Not a Time-Series Database?
 
@@ -1251,7 +1251,7 @@ pytest-asyncio>=0.25.0
 
 | Service | Limit | Mitigation |
 |---------|-------|-----------|
-| Gemini 3.5 Flash (Free) | ~10-15 RPM, ~1500 RPD | Redis caching, skip unchanged stocks |
+| Gemini 3.8 Flash (Free) | ~10-15 RPM, ~1500 RPD | Redis caching, skip unchanged stocks |
 | Chartlink (Unofficial) | No official limit | 2-second delay between requests |
 | Render Free Tier | 750 hours/month, spins down after 15 min | External cron ping every 14 min |
 

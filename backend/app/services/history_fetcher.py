@@ -137,6 +137,7 @@ class HistoryFetcher:
             if pt["date"] in existing_dates:
                 continue
 
+            existing_dates.add(pt["date"])
             new_snapshots.append(
                 DailySnapshot(
                     stock_id=stock_id,

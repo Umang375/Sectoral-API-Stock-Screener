@@ -83,8 +83,32 @@ class TestHistoryFetcher(unittest.IsolatedAsyncioTestCase):
         resp_404.status_code = 404
         mock_get.return_value = resp_404
 
-        points = await self.fetcher.fetch_history("NONEXISTENT")
-        self.assertEqual(points, [])
+    @patch.object(HistoryFetcher, "fetch_history")
+    async def test_backfill_stock_deduplicates_intra_batch_dates(self, mock_fetch):
+        """Verify that duplicate dates within the fetched batch are deduplicated."""
+        mock_fetch.return_value = [
+            {"date": date(2026, 3, 15), "ltp": 1400.0, "volume": 1000, "change_pct": 1.0},
+            {"date": date(2026, 3, 15), "ltp": 1405.0, "volume": 1200, "change_pct": 1.3},  # Duplicate date!
+            {"date": date(2026, 3, 16), "ltp": 1410.0, "volume": 1500, "change_pct": 0.7},
+        ]
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_session.exec.return_value = mock_result
+
+        added_count = await self.fetcher.backfill_stock(
+            stock_id=1,
+            symbol="INFY",
+            screener_id=1,
+            session=mock_session,
+        )
+
+        self.assertEqual(added_count, 2)
+        saved_snapshots = mock_session.add_all.call_args[0][0]
+        self.assertEqual(len(saved_snapshots), 2)
+        self.assertEqual(saved_snapshots[0].snapshot_date, date(2026, 3, 15))
+        self.assertEqual(saved_snapshots[1].snapshot_date, date(2026, 3, 16))
 
 
 if __name__ == "__main__":

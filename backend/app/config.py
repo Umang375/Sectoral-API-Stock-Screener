@@ -11,7 +11,10 @@ and reuse the same Settings object across the entire process lifetime.
 """
 
 from functools import lru_cache
+import json
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,8 +24,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        # CORS_ORIGINS comes in as a comma-separated string from the env;
-        # Pydantic Settings will split it automatically for list[str].
         case_sensitive=False,
     )
 
@@ -32,6 +33,26 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str]:
+        """Parse CORS origins from a comma-separated string, JSON list, or list."""
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except json.JSONDecodeError:
+                    pass
+            return [item.strip() for item in v.split(",") if item.strip()]
+        if isinstance(v, list):
+            return [str(item).strip() for item in v if str(item).strip()]
+        return v
 
     # ── Gemini LLM settings ──────────────────────────────────────────────
     # Using gemini-3.8-flash
