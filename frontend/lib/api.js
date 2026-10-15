@@ -43,7 +43,11 @@ export async function getStocks(skip = 0, limit = 100) {
 }
 
 export async function getStock(symbol) {
-  return apiFetch(`/api/stocks/${symbol}`);
+  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}`);
+}
+
+export async function getStockHistory(symbol, skip = 0, limit = 30) {
+  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/history?skip=${skip}&limit=${limit}`);
 }
 
 export async function getTags(skip = 0, limit = 100) {
@@ -63,5 +67,5 @@ export async function getTagStocks(label) {
 }
 
 export async function getStockReturns(symbol, limit = 12) {
-  return apiFetch(`/api/stocks/${symbol}/returns?limit=${limit}`);
+  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/returns?limit=${limit}`);
 }

@@ -22,6 +22,7 @@ class TagResponse(BaseModel):
     stock_count: int = 0
     advancing_count: int = 0
     declining_count: int = 0
+    unchanged_count: int = 0
     drawdown_52w_high: float | None = None
     return_1d: float | None = None
     return_1w: float | None = None

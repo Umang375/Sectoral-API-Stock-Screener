@@ -441,6 +441,7 @@ function RowGroup({
           <AdvanceDeclineBar
             advancing={sector.advancing_count}
             declining={sector.declining_count}
+            unchanged={sector.unchanged_count}
             total={sector.stock_count}
           />
         </td>

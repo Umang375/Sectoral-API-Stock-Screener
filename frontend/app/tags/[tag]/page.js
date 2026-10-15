@@ -75,7 +75,13 @@ export default async function TagDetailPage({ params }) {
               </div>
               <div className="return-stat-item">
                 <div className="label">Latest Avg Return</div>
-                <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                <div
+                  className={`value ${
+                    returnsData?.returns[0]?.is_complete
+                      ? (returnsData?.returns[0]?.avg_return_pct >= 0 ? 'text-green' : 'text-red')
+                      : ''
+                  }`.trim()}
+                >
                   {returnsData?.returns[0]?.is_complete
                     ? `${returnsData?.returns[0]?.avg_return_pct > 0 ? '+' : ''}${returnsData.returns[0].avg_return_pct.toFixed(2)}%`
                     : '—'}
@@ -83,7 +89,13 @@ export default async function TagDetailPage({ params }) {
               </div>
               <div className="return-stat-item">
                 <div className="label">Latest Median Return</div>
-                <div className={`value ${returnsData?.returns[0]?.is_complete && returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red'}`}>
+                <div
+                  className={`value ${
+                    returnsData?.returns[0]?.is_complete
+                      ? (returnsData?.returns[0]?.median_return_pct >= 0 ? 'text-green' : 'text-red')
+                      : ''
+                  }`.trim()}
+                >
                   {returnsData?.returns[0]?.is_complete
                     ? `${returnsData?.returns[0]?.median_return_pct > 0 ? '+' : ''}${returnsData.returns[0].median_return_pct.toFixed(2)}%`
                     : '—'}
@@ -114,7 +126,13 @@ export default async function TagDetailPage({ params }) {
                       >
                       </div>
                     </div>
-                    <div className={`return-bar-value ${ret.is_complete && isPositive ? 'text-green' : 'text-red'}`}>
+                    <div
+                      className={`return-bar-value ${
+                        ret.is_complete
+                          ? (isPositive ? 'text-green' : 'text-red')
+                          : ''
+                      }`.trim()}
+                    >
                       {ret.is_complete ? `${isPositive ? '+' : ''}${ret.avg_return_pct.toFixed(2)}%` : '—'}
                     </div>
                   </div>

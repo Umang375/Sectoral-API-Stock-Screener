@@ -43,6 +43,12 @@ export default async function DashboardPage() {
   if (error && !data) return <ErrorState message={error} />;
   if (!data) return null;
 
+  const topStock = data.top_stocks_this_week?.[0];
+  const hasValidReturn = Boolean(topStock?.is_complete && typeof topStock?.return_pct === 'number');
+  const returnClass = hasValidReturn
+    ? (topStock.return_pct >= 0 ? 'green' : 'red')
+    : '';
+
   return (
     <div>
       <div className="page-header">
@@ -62,16 +68,9 @@ export default async function DashboardPage() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Top Return</div>
-          <div
-            className={`stat-value ${
-              data.top_stocks_this_week[0]?.is_complete &&
-              data.top_stocks_this_week[0]?.return_pct >= 0
-                ? 'green'
-                : 'red'
-            }`}
-          >
-            {data.top_stocks_this_week[0]?.is_complete
-              ? `${data.top_stocks_this_week[0].return_pct > 0 ? '+' : ''}${data.top_stocks_this_week[0].return_pct.toFixed(2)}%`
+          <div className={`stat-value ${returnClass}`.trim()}>
+            {hasValidReturn
+              ? `${topStock.return_pct > 0 ? '+' : ''}${topStock.return_pct.toFixed(2)}%`
               : '—'}
           </div>
         </div>

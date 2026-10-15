@@ -183,22 +183,33 @@ async def _enrich_tags_with_metrics(
             if sm.get("ret_2y") is not None:
                 ret_2y_list.append(sm["ret_2y"])
 
-        # Advance / Decline & 1D
-        if tag_id in tag_daily_map:
-            adv_count = tag_daily_map[tag_id].advancing_count
-            dec_count = tag_daily_map[tag_id].declining_count
-            ret_1d = round(tag_daily_map[tag_id].avg_return_pct, 1)
-        else:
+        # Advance / Decline / Unchanged & 1D
+        if stock_details:
+            valid_1d = [s.change_pct for s in stock_details if s.change_pct is not None]
             adv_count = sum(1 for s in stock_details if s.change_pct is not None and s.change_pct > 0)
             dec_count = sum(1 for s in stock_details if s.change_pct is not None and s.change_pct < 0)
-            valid_1d = [s.change_pct for s in stock_details if s.change_pct is not None]
+            unc_count = sum(1 for s in stock_details if s.change_pct is not None and s.change_pct == 0)
+            # Constituents without fresh change_pct count as unchanged so adv + unc + dec == len(stock_details)
+            unc_count += sum(1 for s in stock_details if s.change_pct is None)
             ret_1d = round(mean(valid_1d), 1) if valid_1d else None
+        elif tag_id in tag_daily_map:
+            adv_count = tag_daily_map[tag_id].advancing_count
+            dec_count = tag_daily_map[tag_id].declining_count
+            unc_count = max(0, tag_daily_map[tag_id].stock_count - adv_count - dec_count)
+            ret_1d = round(tag_daily_map[tag_id].avg_return_pct, 1)
+        else:
+            adv_count = 0
+            dec_count = 0
+            unc_count = 0
+            ret_1d = None
 
         # 1W
-        if tag_id in tag_weekly_map:
+        if ret_1w_list:
+            ret_1w = round(mean(ret_1w_list), 1)
+        elif tag_id in tag_weekly_map:
             ret_1w = round(tag_weekly_map[tag_id].avg_return_pct, 1)
         else:
-            ret_1w = round(mean(ret_1w_list), 1) if ret_1w_list else None
+            ret_1w = None
 
         # Multi-period (return None when not enough data)
         ret_1m = round(mean(ret_1m_list), 1) if ret_1m_list else None
@@ -212,9 +223,10 @@ async def _enrich_tags_with_metrics(
             TagResponse(
                 id=tag_id,
                 label=label,
-                stock_count=count,
+                stock_count=len(stock_details) if stock_details else count,
                 advancing_count=adv_count,
                 declining_count=dec_count,
+                unchanged_count=unc_count,
                 drawdown_52w_high=drawdown_52w_val,
                 return_1d=ret_1d,
                 return_1w=ret_1w,

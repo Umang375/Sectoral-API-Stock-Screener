@@ -382,6 +382,11 @@
   background: #ef4444;
 }
 
+.ad-bar-unc {
+  height: 100%;
+  background: #9ca3af;
+}
+
 .ad-bar-adv {
   height: 100%;
   background: #10b981;
@@ -405,6 +410,10 @@
 
 .ad-count-dec {
   color: #ef4444;
+}
+
+.ad-count-unc {
+  color: #9ca3af;
 }
 
 .ad-count-adv {
