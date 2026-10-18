@@ -64,7 +64,7 @@ export default async function DashboardPage() {
           <div className="stat-value">{data.total_stocks_tracked}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Active Sectors</div>
+          <div className="stat-label">Active Tags</div>
           <div className="stat-value">{data.total_tags}</div>
         </div>
         <div className="stat-card">
@@ -87,12 +87,12 @@ export default async function DashboardPage() {
         addedStocks={data.recently_added_stocks || []}
       />
 
-      {/* ── Top Sectors Heatmap Matrix ──────────────────────── */}
+      {/* ── Top Tags Heatmap Matrix ─────────────────────────── */}
       {tags.length > 0 && (
         <div className="dashboard-heatmap-wrap">
           <SectorHeatmapTable
             sectors={tags}
-            title="Top Sectors"
+            title="Top Tags"
             subtitle="Market breadth, 52W high drawdown, and multi-period return heatmaps"
             defaultLimit={8}
             showControls={true}

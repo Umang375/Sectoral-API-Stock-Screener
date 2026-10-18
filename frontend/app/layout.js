@@ -15,7 +15,7 @@ import '@/styles/heatmap.css';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Sectoral API — Stock Screener Dashboard',
+  title: 'Market Monitor — Stock Screener Dashboard',
   description: 'Track Indian equity stocks, AI-generated sector tags, and weekly returns.',
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({ children }) {
           {/* ── Sidebar ─────────────────────────────────────── */}
           <aside className="sidebar">
             <div className="sidebar-brand">
-              <h1>Sectoral</h1>
+              <h1>Market Monitor</h1>
               <p>Stock Intelligence</p>
             </div>
 

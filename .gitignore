@@ -57,3 +57,8 @@ resume_text.txt
 # VibeWise learning notes
 .vibe-wise/
 
+# Graphify knowledge graph
+graphify-out/
+.graphify*
+
+

@@ -68,12 +68,29 @@ function filterAndSortSectors(sectors, searchQuery, activeFilter, sortKey, sortD
  */
 export default function SectorHeatmapTable({
   sectors = [],
-  title = 'Top Sectors',
-  subtitle = 'Market breadth, 52W high drawdown, and multi-period return heatmaps',
+  tags = null,
+  title = null,
+  subtitle = null,
   defaultLimit = null,
   showControls = true,
   allowExpandAll = true,
+  defaultMode = 'tags',
 }) {
+  const hasBothModes = Array.isArray(tags) && Array.isArray(sectors) && tags.length > 0 && sectors.length > 0;
+  const [activeMode, setActiveMode] = useState(hasBothModes ? defaultMode : (tags?.length ? 'tags' : (sectors?.length ? 'sectors' : 'tags')));
+
+  const isSectorMode = activeMode === 'sectors';
+  const activeDataset = isSectorMode ? sectors : (tags || sectors);
+  const entityLabel = isSectorMode ? 'SECTOR' : 'TAG';
+  const displayTitle = isSectorMode
+    ? 'Top Sectors'
+    : (title || (hasBothModes ? 'Top Tags' : 'Top Sectors'));
+  const displaySubtitle = subtitle || (
+    isSectorMode
+      ? `Tracking ${sectors.length} sector cohorts and constituent equities`
+      : `Market breadth, 52W high drawdown, and multi-period return heatmaps`
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [sortKey, setSortKey] = useState('return_1d');
@@ -96,7 +113,7 @@ export default function SectorHeatmapTable({
 
   // Filtering & Sorting pipeline
   const filteredSectors = filterAndSortSectors(
-    sectors,
+    activeDataset,
     searchQuery,
     activeFilter,
     sortKey,
@@ -135,8 +152,34 @@ export default function SectorHeatmapTable({
       {/* ── Table Header & Controls ───────────────────────── */}
       <div className="heatmap-header">
         <div className="heatmap-title-wrap">
-          <h3 className="heatmap-title">{title}</h3>
-          {subtitle && <p className="heatmap-subtitle">{subtitle}</p>}
+          <div className="flex items-center gap-3">
+            <h3 className="heatmap-title">{displayTitle}</h3>
+            {hasBothModes && (
+              <div className="heatmap-mode-toggle">
+                <button
+                  type="button"
+                  className={`mode-toggle-btn ${activeMode === 'tags' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveMode('tags');
+                    setExpandedSectors(new Set());
+                  }}
+                >
+                  🏷️ Tags ({tags.length})
+                </button>
+                <button
+                  type="button"
+                  className={`mode-toggle-btn ${activeMode === 'sectors' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveMode('sectors');
+                    setExpandedSectors(new Set());
+                  }}
+                >
+                  🏭 Sectors ({sectors.length})
+                </button>
+              </div>
+            )}
+          </div>
+          {displaySubtitle && <p className="heatmap-subtitle">{displaySubtitle}</p>}
         </div>
 
         {showControls && (
@@ -218,7 +261,7 @@ export default function SectorHeatmapTable({
                   onClick={() => handleSort('label')}
                 >
                   <div className="th-content">
-                    <span>SECTOR</span>
+                    <span>{entityLabel}</span>
                     {sortKey === 'label' && (
                       <span className="sort-indicator">{sortDir === 'desc' ? '↓' : '↑'}</span>
                     )}
@@ -361,6 +404,7 @@ export default function SectorHeatmapTable({
                     ret6MStyle={ret6MStyle}
                     ret1YStyle={ret1YStyle}
                     ret2YStyle={ret2YStyle}
+                    isSectorMode={isSectorMode}
                   />
                 );
               })}
@@ -378,8 +422,8 @@ export default function SectorHeatmapTable({
             onClick={() => setIsExpandedLimit((prev) => !prev)}
           >
             {isExpandedLimit
-              ? `↑ Collapse to Top ${defaultLimit} Sectors`
-              : `↓ Show All ${filteredSectors.length} Sectors`}
+              ? `↑ Collapse to Top ${defaultLimit} ${entityLabel === 'TAG' ? 'Tags' : 'Sectors'}`
+              : `↓ Show All ${filteredSectors.length} ${entityLabel === 'TAG' ? 'Tags' : 'Sectors'}`}
           </button>
         )}
 
@@ -412,6 +456,7 @@ function RowGroup({
   ret6MStyle,
   ret1YStyle,
   ret2YStyle,
+  isSectorMode = false,
 }) {
   return (
     <>
@@ -428,7 +473,7 @@ function RowGroup({
               {isExpanded ? '−' : '+'}
             </button>
             <Link
-              href={`/tags/${encodeURIComponent(sector.label)}`}
+              href={isSectorMode ? `/stocks?sector=${encodeURIComponent(sector.label)}` : `/tags/${encodeURIComponent(sector.label)}`}
               className="sector-name-link"
             >
               <span className="sector-title">{sector.label}</span>

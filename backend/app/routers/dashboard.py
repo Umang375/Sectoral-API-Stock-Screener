@@ -229,7 +229,6 @@ async def get_dashboard(
         .outerjoin(max_snap_subq, Stock.id == max_snap_subq.c.stock_id)
         .where(Stock.is_active == False)  # noqa: E712
         .order_by(max_snap_subq.c.latest_snap.desc().nullslast())
-        .limit(50)
     )
     dumped_res = await session.exec(dumped_stmt)
     dumped_rows = list(dumped_res.all())
@@ -273,7 +272,6 @@ async def get_dashboard(
             | (func.date(Stock.first_seen) >= added_cutoff),
         )
         .order_by(Stock.last_activated_at.desc(), Stock.first_seen.desc())
-        .limit(50)
     )
     added_res = await session.exec(added_stmt)
     added_rows = list(added_res.all())
