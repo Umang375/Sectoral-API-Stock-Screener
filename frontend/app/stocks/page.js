@@ -6,7 +6,7 @@
 import { getStocks } from '@/lib/api';
 import StockHeatmapTable from '@/components/SectorHeatmap/StockHeatmapTable';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export default async function StocksPage() {
   let stocks = [];

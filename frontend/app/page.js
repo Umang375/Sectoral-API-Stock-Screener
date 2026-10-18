@@ -11,7 +11,7 @@ import StockHeatmapTable from '@/components/SectorHeatmap/StockHeatmapTable';
 import StockLifecycleBoxes from '@/components/Dashboard/StockLifecycleBoxes';
 import { aggregateSectorsFromStocks } from '@/lib/heatmapUtils';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export default async function DashboardPage() {
   let data = null;

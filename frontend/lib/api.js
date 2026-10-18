@@ -15,14 +15,23 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
  */
 async function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    cache: 'no-store', // Always fetch fresh data on the server
-    ...options,
+  const { cache, revalidate = 300, ...restOptions } = options;
+
+  const fetchConfig = {
+    ...restOptions,
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...restOptions.headers,
     },
-  });
+  };
+
+  if (cache) {
+    fetchConfig.cache = cache;
+  } else {
+    fetchConfig.next = { revalidate };
+  }
+
+  const res = await fetch(url, fetchConfig);
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
@@ -35,37 +44,37 @@ async function apiFetch(path, options = {}) {
 /* ── Public API functions ────────────────────────────────── */
 
 export async function getDashboard() {
-  return apiFetch('/api/dashboard');
+  return apiFetch('/api/dashboard', { revalidate: 60 });
 }
 
 export async function getStocks(skip = 0, limit = 100) {
-  return apiFetch(`/api/stocks?skip=${skip}&limit=${limit}`);
+  return apiFetch(`/api/stocks?skip=${skip}&limit=${limit}`, { revalidate: 300 });
 }
 
 export async function getStock(symbol) {
-  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}`);
+  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}`, { revalidate: 60 });
 }
 
 export async function getStockHistory(symbol, skip = 0, limit = 500) {
-  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/history?skip=${skip}&limit=${limit}`);
+  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/history?skip=${skip}&limit=${limit}`, { revalidate: 300 });
 }
 
 export async function getTags(skip = 0, limit = 100) {
-  return apiFetch(`/api/tags?skip=${skip}&limit=${limit}`);
+  return apiFetch(`/api/tags?skip=${skip}&limit=${limit}`, { revalidate: 300 });
 }
 
 export async function getTagReturns(label, limit = 12) {
-  return apiFetch(`/api/tags/${encodeURIComponent(label)}/returns?limit=${limit}`);
+  return apiFetch(`/api/tags/${encodeURIComponent(label)}/returns?limit=${limit}`, { revalidate: 300 });
 }
 
 export async function getTagDailyReturns(label, limit = 30) {
-  return apiFetch(`/api/tags/${encodeURIComponent(label)}/daily-returns?limit=${limit}`);
+  return apiFetch(`/api/tags/${encodeURIComponent(label)}/daily-returns?limit=${limit}`, { revalidate: 300 });
 }
 
 export async function getTagStocks(label) {
-  return apiFetch(`/api/tags/${encodeURIComponent(label)}/stocks`);
+  return apiFetch(`/api/tags/${encodeURIComponent(label)}/stocks`, { revalidate: 300 });
 }
 
 export async function getStockReturns(symbol, limit = 12) {
-  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/returns?limit=${limit}`);
+  return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/returns?limit=${limit}`, { revalidate: 300 });
 }
