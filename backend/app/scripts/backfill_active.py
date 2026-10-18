@@ -23,8 +23,8 @@ logging.basicConfig(
 logger = logging.getLogger("backfill_active")
 
 
-async def backfill_all_active_stocks(range_str: str = "1y", max_concurrent: int = 5):
-    """Backfill 1-year history for all stocks where is_active == True."""
+async def backfill_all_active_stocks(range_str: str = "2y", max_concurrent: int = 5):
+    """Backfill 1-year history and 2Y return for all stocks where is_active == True."""
     start_time = time.time()
 
     async with async_session_factory() as session:
@@ -57,11 +57,12 @@ async def backfill_all_active_stocks(range_str: str = "1y", max_concurrent: int 
                     count_res = await local_session.exec(cnt_stmt)
                     ohlc_count = count_res.one()
 
-                    # If already has >= 200 genuine OHLC snapshots, it already has ~1 year of data
-                    if ohlc_count >= 200:
+                    stock_obj = await local_session.get(Stock, stock_id)
+                    # If already has >= 200 genuine OHLC snapshots AND return_2y is present, skip
+                    if ohlc_count >= 200 and stock_obj and stock_obj.return_2y is not None:
                         skipped_count += 1
                         logger.info(
-                            "[%d/%d] %s: Skipped (already has %d OHLC snapshots)",
+                            "[%d/%d] %s: Skipped (already has %d OHLC snapshots & 2Y return)",
                             idx,
                             total_stocks,
                             symbol,
@@ -119,4 +120,4 @@ async def backfill_all_active_stocks(range_str: str = "1y", max_concurrent: int 
 
 
 if __name__ == "__main__":
-    asyncio.run(backfill_all_active_stocks("1y"))
+    asyncio.run(backfill_all_active_stocks("2y"))

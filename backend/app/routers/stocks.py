@@ -142,7 +142,7 @@ async def list_stocks(
         ret_3m = calc_ret(get_anchor_ltp(90, 65, 115))
         ret_6m = calc_ret(get_anchor_ltp(180, 140, 220))
         ret_1y = calc_ret(get_anchor_ltp(365, 300, 420))
-        ret_2y = calc_ret(get_anchor_ltp(730, 650, 800))
+        ret_2y = stock.return_2y if stock.return_2y is not None else calc_ret(get_anchor_ltp(730, 650, 800))
 
         items.append(
             StockListItem(
@@ -284,7 +284,7 @@ async def get_stock_history(
                 symbol=stock_sym,
                 screener_id=1,
                 session=session,
-                range_str="1y",
+                range_str="2y",
             )
         except Exception as e:
             logger.warning("Auto backfill for %s failed: %s", stock_sym, e)

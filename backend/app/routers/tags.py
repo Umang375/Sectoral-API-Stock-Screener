@@ -43,7 +43,7 @@ async def _enrich_tags_with_metrics(
 
     # 1. Fetch stock mappings for these tags
     stock_tag_stmt = (
-        select(StockTag.tag_id, Stock.id, Stock.symbol, Stock.name)
+        select(StockTag.tag_id, Stock.id, Stock.symbol, Stock.name, Stock.return_2y)
         .join(Stock, Stock.id == StockTag.stock_id)
         .where(StockTag.tag_id.in_(tag_ids))
         .order_by(Stock.symbol)
@@ -52,9 +52,11 @@ async def _enrich_tags_with_metrics(
     stock_tag_rows = stock_tag_result.all()
 
     tag_stocks_map: dict[int, list[tuple[int, str, str]]] = defaultdict(list)
+    stock_ret_2y_map: dict[int, float | None] = {}
     all_stock_ids = set()
     for row in stock_tag_rows:
         tag_stocks_map[row[0]].append((row[1], row[2], row[3]))
+        stock_ret_2y_map[row[1]] = row[4]
         all_stock_ids.add(row[1])
 
     # 2. Fetch latest TagDailyReturns & TagWeeklyReturns if available
@@ -139,7 +141,7 @@ async def _enrich_tags_with_metrics(
                 "ret_3m": calc_ret(get_anchor_ltp(90, 65, 115)),
                 "ret_6m": calc_ret(get_anchor_ltp(180, 140, 220)),
                 "ret_1y": calc_ret(get_anchor_ltp(365, 300, 420)),
-                "ret_2y": calc_ret(get_anchor_ltp(730, 650, 800)),
+                "ret_2y": stock_ret_2y_map.get(stock_id) if stock_ret_2y_map.get(stock_id) is not None else calc_ret(get_anchor_ltp(730, 650, 800)),
             }
 
     # 4. Construct enriched TagResponse items

@@ -5,7 +5,7 @@ ensuring multi-period returns (1w, 1m, 3m, 6m, 1y, 2y) and 52W high drawdown
 are immediately available across the dashboard and stocks views.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import logging
 from typing import Any
 
@@ -14,7 +14,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import async_session_factory
-from app.models.stock import DailySnapshot
+from app.models.stock import DailySnapshot, Stock
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class HistoryFetcher:
         self._timeout = timeout
 
     async def fetch_history(
-        self, symbol: str, range_str: str = "1y"
+        self, symbol: str, range_str: str = "2y"
     ) -> list[dict[str, Any]]:
         """Fetch daily closing prices for an equity symbol.
 
@@ -133,12 +133,45 @@ class HistoryFetcher:
         symbol: str,
         screener_id: int,
         session: AsyncSession,
-        range_str: str = "1y",
+        range_str: str = "2y",
     ) -> int:
-        """Fetch history and insert missing DailySnapshot records for a stock."""
+        """Fetch history, compute 2-year return, and insert 1-year DailySnapshot records."""
         points = await self.fetch_history(symbol, range_str=range_str)
         if not points:
             return 0
+
+        # Compute 2Y return with respect to latest 1D date if 2y data is available
+        ret_2y: float | None = None
+        if len(points) >= 2:
+            latest_pt = points[-1]
+            latest_close = latest_pt.get("close") or latest_pt.get("ltp")
+            latest_date = latest_pt["date"]
+            target_2y_date = latest_date - timedelta(days=730)
+
+            # Look for 2Y anchor candidate within [650, 800] days
+            candidates_2y = [
+                p for p in points
+                if p.get("close") and p["close"] > 0
+                and abs((p["date"] - target_2y_date).days) <= 75
+            ]
+            if candidates_2y:
+                closest_2y = min(candidates_2y, key=lambda p: abs((p["date"] - target_2y_date).days))
+                p2y_val = closest_2y["close"]
+                if latest_close and p2y_val and p2y_val > 0:
+                    ret_2y = round(((latest_close - p2y_val) / p2y_val) * 100, 2)
+
+        # Update stock's return_2y on master record
+        stock_updated = False
+        if ret_2y is not None:
+            stock = await session.get(Stock, stock_id)
+            if stock and stock.return_2y != ret_2y:
+                stock.return_2y = ret_2y
+                session.add(stock)
+                stock_updated = True
+
+        # PRESERVE ONLY TILL 1 YR (365 days) in DailySnapshot
+        cutoff_1y = date.today() - timedelta(days=365)
+        filtered_points = [pt for pt in points if pt["date"] >= cutoff_1y]
 
         # Query existing snapshots to update flat legacy rows and avoid duplicates
         existing_stmt = select(DailySnapshot).where(
@@ -150,7 +183,7 @@ class HistoryFetcher:
         new_snapshots: list[DailySnapshot] = []
         updated_count = 0
 
-        for pt in points:
+        for pt in filtered_points:
             d = pt["date"]
             if d in existing_map:
                 curr = existing_map[d]
@@ -186,14 +219,15 @@ class HistoryFetcher:
         try:
             if new_snapshots:
                 session.add_all(new_snapshots)
-            if new_snapshots or updated_count > 0:
+            if new_snapshots or updated_count > 0 or stock_updated:
                 await session.commit()
                 logger.info(
-                    "Backfilled %d new and updated %d existing snapshots for %s (stock_id=%d)",
+                    "Backfilled %d new and updated %d existing snapshots for %s (stock_id=%d, return_2y=%s%%)",
                     len(new_snapshots),
                     updated_count,
                     symbol,
                     stock_id,
+                    ret_2y,
                 )
         except Exception:
             await session.rollback()

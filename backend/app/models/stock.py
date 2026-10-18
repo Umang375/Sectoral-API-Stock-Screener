@@ -59,6 +59,10 @@ class Stock(SQLModel, table=True):
         default_factory=date.today,
         description="Date when the stock was first added or last reactivated after dormancy",
     )
+    return_2y: float | None = Field(
+        default=None,
+        description="2-Year return percentage computed from Yahoo Finance with respect to 1D date",
+    )
 
 
 
