@@ -34,5 +34,5 @@ COPY --chown=appuser:appuser . .
 # 9. Network Port Documentation: Inform Docker that traffic arrives on port 8000
 EXPOSE 8000
 
-# 10. Startup Process: Launch Uvicorn ASGI server listening on all IPv4 addresses
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 10. Startup Process: Run database migrations and launch Uvicorn ASGI server
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

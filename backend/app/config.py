@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # ── Tag / snapshot lifecycle ─────────────────────────────────────────
     TAG_CACHE_TTL_SECONDS: int = 604_800  # 7 days
     TAG_CHANGE_THRESHOLD: float = 0.05  # 5 % — triggers a re-tag
-    SNAPSHOT_RETENTION_DAYS: int = 90
+    SNAPSHOT_RETENTION_DAYS: int = 750  # ~2 years to preserve historical return baselines and chart data
 
     def model_post_init(self, __context: object) -> None:
         """Fix DATABASE_URL scheme for Render compatibility.
