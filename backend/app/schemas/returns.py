@@ -1,6 +1,6 @@
 """Pydantic schemas for Returns / Dashboard API responses."""
 
-from datetime import date
+from datetime import date as dt_date
 
 from pydantic import BaseModel
 
@@ -36,7 +36,7 @@ class DashboardLifecycleStock(BaseModel):
     name: str
     sector: str | None = None
     status: str  # "new", "reactivated", or "dumped"
-    date: date | None = None
+    date: dt_date | None = None
     days_inactive: int | None = None
     ltp: float | None = None
 
