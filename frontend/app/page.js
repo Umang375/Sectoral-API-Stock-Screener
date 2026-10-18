@@ -7,6 +7,7 @@
 import { getDashboard, getStocks, getTags } from '@/lib/api';
 import SectorHeatmapTable from '@/components/SectorHeatmap/SectorHeatmapTable';
 import StockHeatmapTable from '@/components/SectorHeatmap/StockHeatmapTable';
+import StockLifecycleBoxes from '@/components/Dashboard/StockLifecycleBoxes';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,12 @@ export default async function DashboardPage() {
           <div className="stat-value">{data.recent_alerts?.length || 0}</div>
         </div>
       </div>
+
+      {/* ── Stock Lifecycle: Dumped & Added Boxes ─────────── */}
+      <StockLifecycleBoxes
+        dumpedStocks={data.dumped_stocks || []}
+        addedStocks={data.recently_added_stocks || []}
+      />
 
       {/* ── Top Sectors Heatmap Matrix ──────────────────────── */}
       {tags.length > 0 && (

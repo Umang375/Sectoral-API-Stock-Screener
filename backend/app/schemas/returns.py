@@ -30,6 +30,17 @@ class DashboardAlert(BaseModel):
     time: str
 
 
+class DashboardLifecycleStock(BaseModel):
+    """Stock item representing dumped (inactive) or recently added/reactivated equities."""
+    symbol: str
+    name: str
+    sector: str | None = None
+    status: str  # "new", "reactivated", or "dumped"
+    date: date | None = None
+    days_inactive: int | None = None
+    ltp: float | None = None
+
+
 class DashboardResponse(BaseModel):
     """Top-level dashboard summary."""
     top_stocks_today: list[DashboardStock] = []
@@ -37,5 +48,8 @@ class DashboardResponse(BaseModel):
     top_tags_this_week: list[DashboardTag] = []
     top_tags_today: list[DashboardTag] = []
     recent_alerts: list[DashboardAlert] = []
+    dumped_stocks: list[DashboardLifecycleStock] = []
+    recently_added_stocks: list[DashboardLifecycleStock] = []
     total_stocks_tracked: int = 0
     total_tags: int = 0
+

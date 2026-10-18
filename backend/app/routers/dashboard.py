@@ -9,7 +9,7 @@ multiple endpoints and stitching data together?
 This is the BFF (Backend For Frontend) pattern applied to a single endpoint.
 """
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlmodel import func, select
@@ -22,6 +22,7 @@ from app.models.tag import StockTag, Tag
 from app.models.webhook import WebhookAlert
 from app.schemas.returns import (
     DashboardAlert,
+    DashboardLifecycleStock,
     DashboardResponse,
     DashboardStock,
     DashboardTag,
@@ -208,12 +209,119 @@ async def get_dashboard(
     tag_count_result = await session.exec(select(func.count(Tag.id)))
     total_tags = tag_count_result.one()
 
+    # ── Stock Lifecycle: Dumped & Added Stocks ───────────────────────────
+    today = date.today()
+    max_snap_subq = (
+        select(
+            DailySnapshot.stock_id,
+            func.max(DailySnapshot.snapshot_date).label("latest_snap"),
+        )
+        .group_by(DailySnapshot.stock_id)
+        .subquery()
+    )
+
+    # 1. Dumped Stocks (is_active == False)
+    dumped_stmt = (
+        select(
+            Stock,
+            max_snap_subq.c.latest_snap,
+        )
+        .outerjoin(max_snap_subq, Stock.id == max_snap_subq.c.stock_id)
+        .where(Stock.is_active == False)  # noqa: E712
+        .order_by(max_snap_subq.c.latest_snap.desc().nullslast())
+        .limit(50)
+    )
+    dumped_res = await session.exec(dumped_stmt)
+    dumped_rows = list(dumped_res.all())
+
+    dumped_stock_ids = [st.id for st, _ in dumped_rows]
+    dumped_ltps = {}
+    if dumped_stock_ids:
+        ltp_stmt = (
+            select(DailySnapshot.stock_id, DailySnapshot.ltp)
+            .join(
+                max_snap_subq,
+                (DailySnapshot.stock_id == max_snap_subq.c.stock_id)
+                & (DailySnapshot.snapshot_date == max_snap_subq.c.latest_snap),
+            )
+            .where(DailySnapshot.stock_id.in_(dumped_stock_ids))
+        )
+        ltp_res = await session.exec(ltp_stmt)
+        for sid, ltp in ltp_res.all():
+            dumped_ltps[sid] = ltp
+
+    dumped_stocks = [
+        DashboardLifecycleStock(
+            symbol=stock.symbol,
+            name=stock.name,
+            sector=stock.sector,
+            status="dumped",
+            date=last_date,
+            days_inactive=(today - last_date).days if last_date else None,
+            ltp=dumped_ltps.get(stock.id),
+        )
+        for stock, last_date in dumped_rows
+    ]
+
+    # 2. Recently Added & Reactivated Stocks (past 14 days)
+    added_cutoff = today - timedelta(days=14)
+    added_stmt = (
+        select(Stock)
+        .where(
+            Stock.is_active == True,  # noqa: E712
+            (Stock.last_activated_at >= added_cutoff)
+            | (func.date(Stock.first_seen) >= added_cutoff),
+        )
+        .order_by(Stock.last_activated_at.desc(), Stock.first_seen.desc())
+        .limit(50)
+    )
+    added_res = await session.exec(added_stmt)
+    added_rows = list(added_res.all())
+
+    added_stock_ids = [st.id for st in added_rows]
+    added_ltps = {}
+    if added_stock_ids:
+        added_snap_stmt = (
+            select(DailySnapshot.stock_id, DailySnapshot.ltp)
+            .join(
+                max_snap_subq,
+                (DailySnapshot.stock_id == max_snap_subq.c.stock_id)
+                & (DailySnapshot.snapshot_date == max_snap_subq.c.latest_snap),
+            )
+            .where(DailySnapshot.stock_id.in_(added_stock_ids))
+        )
+        added_snap_res = await session.exec(added_snap_stmt)
+        for sid, ltp in added_snap_res.all():
+            added_ltps[sid] = ltp
+
+    recently_added_stocks = []
+    for stock in added_rows:
+        first_date = stock.first_seen.date() if isinstance(stock.first_seen, datetime) else stock.first_seen
+        is_reactivated = bool(stock.last_activated_at and first_date and (stock.last_activated_at > first_date))
+        status = "reactivated" if is_reactivated else "new"
+        active_date = stock.last_activated_at if is_reactivated else first_date
+
+        recently_added_stocks.append(
+            DashboardLifecycleStock(
+                symbol=stock.symbol,
+                name=stock.name,
+                sector=stock.sector,
+                status=status,
+                date=active_date,
+                days_inactive=0,
+                ltp=added_ltps.get(stock.id),
+            )
+        )
+
     return DashboardResponse(
         top_stocks_today=top_stocks_today,
         top_stocks_this_week=top_stocks,
         top_tags_this_week=top_tags,
         top_tags_today=top_tags_today,
         recent_alerts=recent_alerts,
+        dumped_stocks=dumped_stocks,
+        recently_added_stocks=recently_added_stocks,
         total_stocks_tracked=total_stocks,
         total_tags=total_tags,
     )
+
