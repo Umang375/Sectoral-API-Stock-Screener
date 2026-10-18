@@ -46,12 +46,15 @@ class SectorSummary(BaseModel):
 async def list_stocks(
     session: AsyncSession = Depends(get_session),
     sector: str | None = Query(None, description="Filter stocks by classified sector"),
+    include_inactive: bool = Query(False, description="Include soft-deleted inactive stocks"),
     skip: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(100, ge=1, le=200, description="Page size"),
 ) -> list[StockListItem]:
-    """List all tracked stocks with latest LTP, tags, and multi-period performance matrix."""
+    """List tracked stocks with latest LTP, tags, and multi-period performance matrix."""
     # Fetch stocks with pagination and optional sector filter.
     stmt = select(Stock)
+    if not include_inactive:
+        stmt = stmt.where(Stock.is_active == True)  # noqa: E712
     if sector:
         stmt = stmt.where(func.lower(Stock.sector) == sector.lower().strip())
     stmt = stmt.order_by(Stock.symbol).offset(skip).limit(limit)
@@ -105,7 +108,9 @@ async def list_stocks(
         ref_date = latest_snap.snapshot_date
         valid_52w_ltps = [
             s.ltp for s in snaps
-            if s.ltp is not None and 0 <= (ref_date - s.snapshot_date).days <= 365
+            if s.ltp is not None
+            and 0 <= (ref_date - s.snapshot_date).days <= 365
+            and (stock.last_activated_at is None or s.snapshot_date >= stock.last_activated_at)
         ]
         max_ltp = max(valid_52w_ltps) if valid_52w_ltps else None
 
@@ -118,7 +123,9 @@ async def list_stocks(
         def get_anchor_ltp(target_days: int, min_days: int, max_days: int) -> float | None:
             candidates = [
                 s for s in snaps
-                if s.ltp is not None and min_days <= (ref_date - s.snapshot_date).days <= max_days
+                if s.ltp is not None
+                and min_days <= (ref_date - s.snapshot_date).days <= max_days
+                and (stock.last_activated_at is None or s.snapshot_date >= stock.last_activated_at)
             ]
             if not candidates:
                 return None
@@ -143,6 +150,7 @@ async def list_stocks(
                 symbol=stock.symbol,
                 name=stock.name,
                 sector=stock.sector,
+                is_active=stock.is_active,
                 tags=tags,
                 ltp=latest_snap.ltp,
                 change_pct=latest_snap.change_pct,
@@ -219,6 +227,8 @@ async def get_stock(
         symbol=stock.symbol,
         name=stock.name,
         sector=stock.sector,
+        is_active=stock.is_active,
+        last_activated_at=stock.last_activated_at,
         tags=tags,
         latest_snapshot=(
             SnapshotResponse(

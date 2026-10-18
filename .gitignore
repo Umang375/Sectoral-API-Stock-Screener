@@ -53,3 +53,7 @@ out/
 pgdata/
 redis_data/
 resume_text.txt
+
+# VibeWise learning notes
+.vibe-wise/
+

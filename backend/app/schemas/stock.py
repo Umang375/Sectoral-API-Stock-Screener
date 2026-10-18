@@ -32,6 +32,8 @@ class StockResponse(BaseModel):
     symbol: str
     name: str
     sector: str | None = None
+    is_active: bool = True
+    last_activated_at: date | None = None
     tags: list[str] = []
     latest_snapshot: SnapshotResponse | None = None
 
@@ -41,6 +43,8 @@ class StockListItem(BaseModel):
     symbol: str
     name: str
     sector: str | None = None
+    is_active: bool = True
+
     tags: list[str] = []
     ltp: float | None = None
     change_pct: float | None = None

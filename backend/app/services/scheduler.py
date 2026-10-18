@@ -29,7 +29,7 @@ from datetime import date, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlmodel import select
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config import get_settings
@@ -102,10 +102,17 @@ async def daily_screener_fetch() -> None:
                         stock = Stock(
                             symbol=scraped.symbol,
                             name=scraped.name,
+                            is_active=True,
+                            last_activated_at=today,
                         )
                         session.add(stock)
                         await session.flush()  # assigns stock.id
                         new_stocks_info.append((stock.id, stock.symbol))
+                    elif not stock.is_active:
+                        stock.is_active = True
+                        stock.last_activated_at = today
+                        session.add(stock)
+                        logger.info("Reactivated dormant stock '%s' on %s", stock.symbol, today)
 
                     # ── Save DailySnapshot ───────────────────────────────
                     # Check for existing snapshot (upsert).
@@ -171,8 +178,73 @@ async def daily_screener_fetch() -> None:
             # just written. This is additive and does not alter stock data.
             await ReturnsCalculator().calculate_daily_tag_returns(session, date.today())
 
+            # Soft-delete stocks that have not appeared in any screener for >= 21 days
+            await soft_delete_inactive_stocks(session, threshold_days=21)
+
     finally:
         await scraper.close()
+
+
+async def soft_delete_inactive_stocks(
+    session: AsyncSession,
+    threshold_days: int = 21,
+    reference_date: date | None = None,
+) -> int:
+    """Soft-delete stocks that have not appeared in any screener for threshold_days.
+
+    A stock is marked inactive (is_active = False) if its latest DailySnapshot
+    is older than (reference_date - threshold_days).
+    Historical DailySnapshot and WeeklyReturns records remain intact.
+
+    Returns:
+        Number of stocks newly marked inactive.
+    """
+    today = reference_date or date.today()
+    cutoff_date = today - timedelta(days=threshold_days)
+
+    # Subquery finding max snapshot_date per stock
+    max_snap_subq = (
+        select(
+            DailySnapshot.stock_id,
+            func.max(DailySnapshot.snapshot_date).label("latest_snap"),
+        )
+        .group_by(DailySnapshot.stock_id)
+        .subquery()
+    )
+
+    # Find active stocks whose latest snapshot is older than cutoff_date
+    # or active stocks that have no snapshots and whose first_seen is older than cutoff_date
+    stmt = (
+        select(Stock)
+        .outerjoin(max_snap_subq, Stock.id == max_snap_subq.c.stock_id)
+        .where(
+            Stock.is_active == True,  # noqa: E712
+            (max_snap_subq.c.latest_snap < cutoff_date)
+            | (
+                (max_snap_subq.c.latest_snap.is_(None))
+                & (func.date(Stock.first_seen) < cutoff_date)
+            ),
+        )
+    )
+    result = await session.exec(stmt)
+    inactive_stocks = list(result.all())
+
+    if not inactive_stocks:
+        return 0
+
+    for stock in inactive_stocks:
+        stock.is_active = False
+        session.add(stock)
+        logger.info(
+            "Soft-deleting inactive stock '%s' (not seen in %d+ days)",
+            stock.symbol,
+            threshold_days,
+        )
+
+    await session.commit()
+    logger.info("Soft-deleted %d inactive stocks", len(inactive_stocks))
+    return len(inactive_stocks)
+
 
 
 async def weekly_returns_calc() -> None:

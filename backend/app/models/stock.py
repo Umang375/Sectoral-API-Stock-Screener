@@ -50,6 +50,16 @@ class Stock(SQLModel, table=True):
         default_factory=datetime.utcnow,
         description="When this stock first appeared in any screener",
     )
+    is_active: bool = Field(
+        default=True,
+        index=True,
+        description="Whether the stock currently appears in active screeners",
+    )
+    last_activated_at: date = Field(
+        default_factory=date.today,
+        description="Date when the stock was first added or last reactivated after dormancy",
+    )
+
 
 
 class DailySnapshot(SQLModel, table=True):
