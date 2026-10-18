@@ -4,6 +4,7 @@
  * Server Component
  */
 
+import Link from 'next/link';
 import { getDashboard, getStocks, getTags } from '@/lib/api';
 import SectorHeatmapTable from '@/components/SectorHeatmap/SectorHeatmapTable';
 import StockHeatmapTable from '@/components/SectorHeatmap/StockHeatmapTable';
@@ -131,7 +132,13 @@ export default async function DashboardPage() {
               <div className="alert-dot" />
               <div className="alert-content">
                 <div className="alert-title">
-                  <strong>{alert.stock}</strong> — {alert.alert_type.replace(/_/g, ' ')}
+                  <Link
+                    href={`/stocks/${encodeURIComponent(alert.stock)}`}
+                    className="alert-stock-link"
+                  >
+                    <strong>{alert.stock}</strong>
+                  </Link>{' '}
+                  — {alert.alert_type.replace(/_/g, ' ')}
                 </div>
                 <div className="alert-time">{alert.time}</div>
               </div>

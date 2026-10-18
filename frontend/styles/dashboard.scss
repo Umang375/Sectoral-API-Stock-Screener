@@ -153,6 +153,17 @@
   .alert-title {
     font-size: 0.85rem;
     font-weight: 500;
+
+    .alert-stock-link {
+      color: $text-primary;
+      text-decoration: none;
+      transition: color $transition-fast;
+
+      &:hover {
+        color: $accent-hover;
+        text-decoration: underline;
+      }
+    }
   }
 
   .alert-time {

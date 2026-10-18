@@ -1,5 +1,19 @@
 import Link from 'next/link';
 
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const parts = String(dateStr).split('T')[0].split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthIdx = parseInt(month, 10) - 1;
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${parseInt(day, 10)} ${months[monthIdx]} ${year}`;
+    }
+  }
+  return dateStr;
+}
+
 export default function StockLifecycleBoxes({ dumpedStocks = [], addedStocks = [] }) {
   return (
     <div className="lifecycle-grid">
@@ -45,7 +59,7 @@ export default function StockLifecycleBoxes({ dumpedStocks = [], addedStocks = [
                       <span className="lifecycle-sector-tag">{stock.sector}</span>
                     )}
                     <span className="lifecycle-date-text">
-                      Last seen: {stock.date || '—'}
+                      Dormant since: {formatDate(stock.date)}
                     </span>
                   </div>
                 </div>
@@ -108,7 +122,8 @@ export default function StockLifecycleBoxes({ dumpedStocks = [], addedStocks = [
                       <span className="lifecycle-sector-tag">{stock.sector}</span>
                     )}
                     <span className="lifecycle-date-text">
-                      {stock.status === 'reactivated' ? 'Resurrected' : 'Added'}: {stock.date || '—'}
+                      {stock.status === 'reactivated' ? 'Reactivated on: ' : 'New added on: '}
+                      {formatDate(stock.date)}
                     </span>
                   </div>
                 </div>

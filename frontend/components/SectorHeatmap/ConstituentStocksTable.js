@@ -37,7 +37,7 @@ export default function ConstituentStocksTable({ stocks = [], sectorName = '' })
               <tr key={stock.symbol} className="subtable-row">
                 <td className="subtable-td-symbol">
                   <Link
-                    href={`/stocks?q=${encodeURIComponent(stock.symbol)}`}
+                    href={`/stocks/${encodeURIComponent(stock.symbol)}`}
                     className="subtable-stock-link"
                   >
                     <span className="subtable-symbol">{stock.symbol}</span>
