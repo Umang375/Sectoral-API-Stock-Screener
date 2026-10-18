@@ -21,8 +21,8 @@ export default async function DashboardPage() {
   try {
     const [dashboardRes, tagsRes, stocksRes] = await Promise.allSettled([
       getDashboard(),
-      getTags(0, 100),
-      getStocks(0, 100),
+      getTags(0, 200).catch(() => getTags(0, 100)),
+      getStocks(0, 500).catch(() => getStocks(0, 100)),
     ]);
 
     if (dashboardRes.status === 'fulfilled') {

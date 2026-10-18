@@ -469,6 +469,11 @@ function RowGroup({
               className="accordion-toggle-btn"
               onClick={onToggle}
               aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              disabled={!sector.stocks || sector.stocks.length === 0}
+              style={{
+                opacity: (!sector.stocks || sector.stocks.length === 0) ? 0.35 : 1,
+                cursor: (!sector.stocks || sector.stocks.length === 0) ? 'default' : 'pointer',
+              }}
             >
               {isExpanded ? '−' : '+'}
             </button>

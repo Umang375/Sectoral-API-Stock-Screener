@@ -11,6 +11,8 @@
  * - Deep Losses / Drawdowns: Crimson / dark burgundy with white text
  */
 
+import { PREDEFINED_SECTORS, FALLBACK_SECTOR } from './constants';
+
 /**
  * Returns background and text color styling for a return percentage value.
  * @param {number|null|undefined} val - Return percentage (e.g. 10.6, -1.2, null)
@@ -155,58 +157,86 @@ export function formatPercent(val, showPlus = false) {
 }
 
 /**
- * Aggregates a flat list of stock records into sector cohort matrix objects.
+ * Aggregates a flat list of stock records into sector cohort matrix objects
+ * seeded with the 88 PREDEFINED_SECTORS taxonomy.
+ *
  * @param {Array} stocks
- * @returns {Array} Array of sector objects compatible with SectorHeatmapTable
+ * @returns {Array} Array of 88 sector objects compatible with SectorHeatmapTable
  */
-export function aggregateSectorsFromStocks(stocks) {
-  if (!Array.isArray(stocks) || stocks.length === 0) return [];
-
+export function aggregateSectorsFromStocks(stocks = []) {
   const sectorsMap = new Map();
+  const normalizedLookup = new Map();
 
-  for (const stock of stocks) {
-    const sectorName = stock.sector?.trim() || 'Diversified / Others';
-    if (!sectorsMap.has(sectorName)) {
-      sectorsMap.set(sectorName, {
-        id: `sector-${sectorName}`,
-        label: sectorName,
-        stocks: [],
-        drawdownList: [],
-        ret1DList: [],
-        ret1WList: [],
-        ret1MList: [],
-        ret3MList: [],
-        ret6MList: [],
-        ret1YList: [],
-        ret2YList: [],
-      });
-    }
-
-    const sec = sectorsMap.get(sectorName);
-    sec.stocks.push({
-      symbol: stock.symbol,
-      name: stock.name,
-      ltp: stock.ltp,
-      change_pct: stock.change_pct,
-      drawdown_52w_high: stock.drawdown_52w_high,
-      volume: stock.volume,
-      return_1d: stock.return_1d,
-      return_1w: stock.return_1w,
-      return_1m: stock.return_1m,
-      return_3m: stock.return_3m,
-      return_6m: stock.return_6m,
-      return_1y: stock.return_1y,
-      return_2y: stock.return_2y,
+  // Seed with all 88 predefined sectors
+  for (const sectorName of PREDEFINED_SECTORS) {
+    sectorsMap.set(sectorName, {
+      id: `sector-${sectorName}`,
+      label: sectorName,
+      stocks: [],
+      drawdownList: [],
+      ret1DList: [],
+      ret1WList: [],
+      ret1MList: [],
+      ret3MList: [],
+      ret6MList: [],
+      ret1YList: [],
+      ret2YList: [],
     });
+    normalizedLookup.set(sectorName.toLowerCase().trim(), sectorName);
+  }
 
-    if (stock.drawdown_52w_high != null) sec.drawdownList.push(stock.drawdown_52w_high);
-    if (stock.return_1d != null) sec.ret1DList.push(stock.return_1d);
-    if (stock.return_1w != null) sec.ret1WList.push(stock.return_1w);
-    if (stock.return_1m != null) sec.ret1MList.push(stock.return_1m);
-    if (stock.return_3m != null) sec.ret3MList.push(stock.return_3m);
-    if (stock.return_6m != null) sec.ret6MList.push(stock.return_6m);
-    if (stock.return_1y != null) sec.ret1YList.push(stock.return_1y);
-    if (stock.return_2y != null) sec.ret2YList.push(stock.return_2y);
+  // Populate constituent stocks into their classified sector
+  if (Array.isArray(stocks)) {
+    for (const stock of stocks) {
+      const rawSector = stock.sector?.trim();
+      const canonicalSector = rawSector
+        ? (normalizedLookup.get(rawSector.toLowerCase()) || rawSector)
+        : null;
+
+      const sectorName = canonicalSector || FALLBACK_SECTOR;
+
+      if (!sectorsMap.has(sectorName)) {
+        sectorsMap.set(sectorName, {
+          id: `sector-${sectorName}`,
+          label: sectorName,
+          stocks: [],
+          drawdownList: [],
+          ret1DList: [],
+          ret1WList: [],
+          ret1MList: [],
+          ret3MList: [],
+          ret6MList: [],
+          ret1YList: [],
+          ret2YList: [],
+        });
+      }
+
+      const sec = sectorsMap.get(sectorName);
+      sec.stocks.push({
+        symbol: stock.symbol,
+        name: stock.name,
+        ltp: stock.ltp,
+        change_pct: stock.change_pct,
+        drawdown_52w_high: stock.drawdown_52w_high,
+        volume: stock.volume,
+        return_1d: stock.return_1d,
+        return_1w: stock.return_1w,
+        return_1m: stock.return_1m,
+        return_3m: stock.return_3m,
+        return_6m: stock.return_6m,
+        return_1y: stock.return_1y,
+        return_2y: stock.return_2y,
+      });
+
+      if (stock.drawdown_52w_high != null) sec.drawdownList.push(stock.drawdown_52w_high);
+      if (stock.return_1d != null) sec.ret1DList.push(stock.return_1d);
+      if (stock.return_1w != null) sec.ret1WList.push(stock.return_1w);
+      if (stock.return_1m != null) sec.ret1MList.push(stock.return_1m);
+      if (stock.return_3m != null) sec.ret3MList.push(stock.return_3m);
+      if (stock.return_6m != null) sec.ret6MList.push(stock.return_6m);
+      if (stock.return_1y != null) sec.ret1YList.push(stock.return_1y);
+      if (stock.return_2y != null) sec.ret2YList.push(stock.return_2y);
+    }
   }
 
   const calcAvg = (arr) => arr.length ? Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1)) : null;
@@ -236,6 +266,13 @@ export function aggregateSectorsFromStocks(stocks) {
     });
   }
 
-  result.sort((a, b) => b.stock_count - a.stock_count);
+  // Active sectors (with constituent stocks) first by stock count, then remaining alphabetically
+  result.sort((a, b) => {
+    if (a.stock_count > 0 && b.stock_count === 0) return -1;
+    if (a.stock_count === 0 && b.stock_count > 0) return 1;
+    if (a.stock_count !== b.stock_count) return b.stock_count - a.stock_count;
+    return a.label.localeCompare(b.label);
+  });
+
   return result;
 }
