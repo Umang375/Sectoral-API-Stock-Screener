@@ -50,7 +50,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false  # Set manually in Render dashboard (secret)
       - key: SNAPSHOT_RETENTION_DAYS
-        value: "750"
+        value: "365"
       - key: CORS_ORIGINS
         value: "https://your-frontend.vercel.app,http://localhost:3000"
       - key: PYTHON_VERSION

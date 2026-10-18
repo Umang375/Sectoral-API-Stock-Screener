@@ -35,7 +35,7 @@ class HistoryFetcher:
         self._timeout = timeout
 
     async def fetch_history(
-        self, symbol: str, range_str: str = "2y"
+        self, symbol: str, range_str: str = "1y"
     ) -> list[dict[str, Any]]:
         """Fetch daily closing prices for an equity symbol.
 
@@ -133,7 +133,7 @@ class HistoryFetcher:
         symbol: str,
         screener_id: int,
         session: AsyncSession,
-        range_str: str = "2y",
+        range_str: str = "1y",
     ) -> int:
         """Fetch history and insert missing DailySnapshot records for a stock."""
         points = await self.fetch_history(symbol, range_str=range_str)

@@ -284,7 +284,7 @@ async def get_stock_history(
                 symbol=stock_sym,
                 screener_id=1,
                 session=session,
-                range_str="2y",
+                range_str="1y",
             )
         except Exception as e:
             logger.warning("Auto backfill for %s failed: %s", stock_sym, e)
