@@ -21,6 +21,10 @@ from pydantic import BaseModel
 class SnapshotResponse(BaseModel):
     """A single daily snapshot in API responses."""
     ltp: float
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
     volume: int | None = None
     change_pct: float | None = None
     date: date

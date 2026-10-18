@@ -110,6 +110,45 @@ class TestHistoryFetcher(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved_snapshots[0].snapshot_date, date(2026, 3, 15))
         self.assertEqual(saved_snapshots[1].snapshot_date, date(2026, 3, 16))
 
+    @patch("httpx.AsyncClient.get")
+    async def test_fetch_history_with_ohlc(self, mock_get):
+        """Verify full OHLC extraction when provided by Yahoo Finance."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {"symbol": "TCS.NS"},
+                        "timestamp": [1700000000],
+                        "indicators": {
+                            "quote": [
+                                {
+                                    "open": [3500.0],
+                                    "high": [3550.0],
+                                    "low": [3480.0],
+                                    "close": [3530.0],
+                                    "volume": [800000],
+                                }
+                            ]
+                        },
+                    }
+                ]
+            }
+        }
+        mock_get.return_value = mock_response
+
+        points = await self.fetcher.fetch_history("TCS", range_str="1mo")
+        self.assertEqual(len(points), 1)
+        pt = points[0]
+        self.assertEqual(pt["open"], 3500.0)
+        self.assertEqual(pt["high"], 3550.0)
+        self.assertEqual(pt["low"], 3480.0)
+        self.assertEqual(pt["close"], 3530.0)
+        self.assertEqual(pt["ltp"], 3530.0)
+        self.assertEqual(pt["volume"], 800000)
+
 
 if __name__ == "__main__":
     unittest.main()
+

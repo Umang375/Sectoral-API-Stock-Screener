@@ -321,7 +321,7 @@ export default function StockHeatmapTable({
                     <td className="cell-stock-symbol">
                       <div className="stock-cell-wrap">
                         <Link
-                          href={`/stocks?q=${encodeURIComponent(stock.symbol)}`}
+                          href={`/stocks/${encodeURIComponent(stock.symbol)}`}
                           className="stock-symbol-link"
                         >
                           <span className="stock-title">{stock.symbol}</span>

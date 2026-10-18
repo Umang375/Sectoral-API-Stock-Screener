@@ -12,6 +12,7 @@ import '@/styles/dashboard.scss';
 import '@/styles/stocks.scss';
 import '@/styles/tags.scss';
 import '@/styles/heatmap.scss';
+import '@/styles/stock-detail.scss';
 import Link from 'next/link';
 
 export const metadata = {

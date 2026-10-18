@@ -19,7 +19,7 @@ WHY UniqueConstraint on (stock_id, tag_id)?
 - A stock should never have the same tag twice, regardless of screener.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
@@ -37,7 +37,7 @@ class Tag(SQLModel, table=True):
         index=True,
         description="Lowercase tag label",
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class StockTag(SQLModel, table=True):

@@ -46,7 +46,7 @@ export async function getStock(symbol) {
   return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}`);
 }
 
-export async function getStockHistory(symbol, skip = 0, limit = 30) {
+export async function getStockHistory(symbol, skip = 0, limit = 500) {
   return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/history?skip=${skip}&limit=${limit}`);
 }
 

@@ -65,6 +65,9 @@ class HistoryFetcher:
                     series = result[0]
                     timestamps = series.get("timestamp", [])
                     indicators = series.get("indicators", {}).get("quote", [{}])[0]
+                    opens = indicators.get("open", [])
+                    highs = indicators.get("high", [])
+                    lows = indicators.get("low", [])
                     closes = indicators.get("close", [])
                     volumes = indicators.get("volume", [])
 
@@ -74,12 +77,20 @@ class HistoryFetcher:
                     points: list[dict[str, Any]] = []
                     prev_close: float | None = None
 
-                    for ts, close, vol in zip(timestamps, closes, volumes):
+                    open_list = opens if len(opens) == len(timestamps) else [None] * len(timestamps)
+                    high_list = highs if len(highs) == len(timestamps) else [None] * len(timestamps)
+                    low_list = lows if len(lows) == len(timestamps) else [None] * len(timestamps)
+                    vol_list = volumes if len(volumes) == len(timestamps) else [None] * len(timestamps)
+
+                    for ts, close, op, hi, lo, vol in zip(timestamps, closes, open_list, high_list, low_list, vol_list):
                         if close is None:
                             continue
 
                         pt_date = datetime.fromtimestamp(ts, tz=timezone.utc).date()
                         close_rounded = round(float(close), 2)
+                        open_rounded = round(float(op), 2) if op is not None else close_rounded
+                        high_rounded = round(float(hi), 2) if hi is not None else max(open_rounded, close_rounded)
+                        low_rounded = round(float(lo), 2) if lo is not None else min(open_rounded, close_rounded)
 
                         change_pct: float | None = None
                         if prev_close and prev_close > 0:
@@ -92,6 +103,10 @@ class HistoryFetcher:
                             {
                                 "date": pt_date,
                                 "ltp": close_rounded,
+                                "open": open_rounded,
+                                "high": high_rounded,
+                                "low": low_rounded,
+                                "close": close_rounded,
                                 "volume": int(vol) if vol is not None else None,
                                 "change_pct": change_pct,
                             }
@@ -125,42 +140,67 @@ class HistoryFetcher:
         if not points:
             return 0
 
-        # Query existing snapshot dates to avoid duplicate key errors
-        existing_stmt = select(DailySnapshot.snapshot_date).where(
+        # Query existing snapshots to update flat legacy rows and avoid duplicates
+        existing_stmt = select(DailySnapshot).where(
             DailySnapshot.stock_id == stock_id
         )
         existing_res = await session.exec(existing_stmt)
-        existing_dates = set(existing_res.all())
+        existing_map = {s.snapshot_date: s for s in existing_res.all()}
 
         new_snapshots: list[DailySnapshot] = []
+        updated_count = 0
+
         for pt in points:
-            if pt["date"] in existing_dates:
+            d = pt["date"]
+            if d in existing_map:
+                curr = existing_map[d]
+                if curr and (curr.open is None or (curr.high == curr.low and pt.get("high") != pt.get("low"))):
+                    curr.open = pt.get("open", curr.ltp)
+                    curr.high = pt.get("high", curr.ltp)
+                    curr.low = pt.get("low", curr.ltp)
+                    curr.close = pt.get("close", curr.ltp)
+                    if pt.get("volume") and not curr.volume:
+                        curr.volume = pt["volume"]
+                    session.add(curr)
+                    updated_count += 1
                 continue
 
-            existing_dates.add(pt["date"])
+            existing_map[d] = None
             new_snapshots.append(
                 DailySnapshot(
                     stock_id=stock_id,
                     screener_id=screener_id,
                     ltp=pt["ltp"],
+                    open=pt.get("open", pt["ltp"]),
+                    high=pt.get("high", pt["ltp"]),
+                    low=pt.get("low", pt["ltp"]),
+                    close=pt.get("close", pt["ltp"]),
                     volume=pt["volume"],
                     change_pct=pt["change_pct"],
                     snapshot_date=pt["date"],
                     raw_data={"source": "yahoo_finance_backfill"},
+                    created_at=datetime.now(timezone.utc),
                 )
             )
 
-        if new_snapshots:
-            session.add_all(new_snapshots)
-            await session.commit()
-            logger.info(
-                "Backfilled %d historical snapshots for %s (stock_id=%d)",
-                len(new_snapshots),
-                symbol,
-                stock_id,
-            )
+        try:
+            if new_snapshots:
+                session.add_all(new_snapshots)
+            if new_snapshots or updated_count > 0:
+                await session.commit()
+                logger.info(
+                    "Backfilled %d new and updated %d existing snapshots for %s (stock_id=%d)",
+                    len(new_snapshots),
+                    updated_count,
+                    symbol,
+                    stock_id,
+                )
+        except Exception:
+            await session.rollback()
+            logger.exception("Failed to commit backfill for %s", symbol)
+            raise
 
-        return len(new_snapshots)
+        return len(new_snapshots) + updated_count
 
 
 async def backfill_stocks_in_background(

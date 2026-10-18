@@ -11,7 +11,7 @@ WHY a separate Screener table?
   you can add/modify screeners without redeploying code.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
 
@@ -25,4 +25,4 @@ class Screener(SQLModel, table=True):
     name: str = Field(max_length=255, description="Human-readable screener name")
     scan_clause: str = Field(description="Chartlink scan formula")
     is_active: bool = Field(default=True, description="Whether to run daily")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

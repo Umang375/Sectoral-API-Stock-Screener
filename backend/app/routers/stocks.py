@@ -31,6 +31,7 @@ from app.models.tag import StockTag, Tag
 from app.schemas.stock import SnapshotResponse, StockListItem, StockResponse
 from app.schemas.tag import StockReturnsItem
 from app.models.returns import WeeklyReturns
+from app.services.history_fetcher import HistoryFetcher
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 
@@ -48,7 +49,7 @@ async def list_stocks(
     sector: str | None = Query(None, description="Filter stocks by classified sector"),
     include_inactive: bool = Query(False, description="Include soft-deleted inactive stocks"),
     skip: int = Query(0, ge=0, description="Pagination offset"),
-    limit: int = Query(100, ge=1, le=200, description="Page size"),
+    limit: int = Query(100, ge=1, le=1000, description="Page size"),
 ) -> list[StockListItem]:
     """List tracked stocks with latest LTP, tags, and multi-period performance matrix."""
     # Fetch stocks with pagination and optional sector filter.
@@ -110,7 +111,6 @@ async def list_stocks(
             s.ltp for s in snaps
             if s.ltp is not None
             and 0 <= (ref_date - s.snapshot_date).days <= 365
-            and (stock.last_activated_at is None or s.snapshot_date >= stock.last_activated_at)
         ]
         max_ltp = max(valid_52w_ltps) if valid_52w_ltps else None
 
@@ -125,7 +125,6 @@ async def list_stocks(
                 s for s in snaps
                 if s.ltp is not None
                 and min_days <= (ref_date - s.snapshot_date).days <= max_days
-                and (stock.last_activated_at is None or s.snapshot_date >= stock.last_activated_at)
             ]
             if not candidates:
                 return None
@@ -233,6 +232,10 @@ async def get_stock(
         latest_snapshot=(
             SnapshotResponse(
                 ltp=latest.ltp,
+                open=latest.open if latest.open is not None else latest.ltp,
+                high=latest.high if latest.high is not None else latest.ltp,
+                low=latest.low if latest.low is not None else latest.ltp,
+                close=latest.close if latest.close is not None else latest.ltp,
                 volume=latest.volume,
                 change_pct=latest.change_pct,
                 date=latest.snapshot_date,
@@ -248,7 +251,7 @@ async def get_stock_history(
     symbol: str,
     session: AsyncSession = Depends(get_session),
     skip: int = Query(0, ge=0),
-    limit: int = Query(30, ge=1, le=365),
+    limit: int = Query(30, ge=1, le=1000),
 ) -> list[SnapshotResponse]:
     """Get daily snapshot history for a stock (newest first)."""
     stock_stmt = select(Stock).where(Stock.symbol == symbol.upper())
@@ -258,9 +261,38 @@ async def get_stock_history(
     if not stock:
         raise HTTPException(status_code=404, detail=f"Stock '{symbol}' not found")
 
+    stock_id = stock.id
+    stock_sym = stock.symbol
+
+    # If stock has few snapshots (< 100) or few OHLC candles, backfill 2-year Yahoo Finance OHLC history
+    cnt_stmt = select(func.count(DailySnapshot.id)).where(DailySnapshot.stock_id == stock_id)
+    count_res = await session.exec(cnt_stmt)
+    snapshot_count = count_res.one()
+
+    ohlc_stmt = select(func.count(DailySnapshot.id)).where(
+        DailySnapshot.stock_id == stock_id,
+        DailySnapshot.open.is_not(None),
+        DailySnapshot.high != DailySnapshot.low,
+    )
+    ohlc_count = (await session.exec(ohlc_stmt)).one()
+
+    if snapshot_count < 100 or ohlc_count < 20:
+        try:
+            fetcher = HistoryFetcher()
+            await fetcher.backfill_stock(
+                stock_id=stock_id,
+                symbol=stock_sym,
+                screener_id=1,
+                session=session,
+                range_str="2y",
+            )
+        except Exception as e:
+            logger.warning("Auto backfill for %s failed: %s", stock_sym, e)
+            await session.rollback()
+
     stmt = (
         select(DailySnapshot)
-        .where(DailySnapshot.stock_id == stock.id)
+        .where(DailySnapshot.stock_id == stock_id)
         .order_by(DailySnapshot.snapshot_date.desc())
         .offset(skip)
         .limit(limit)
@@ -271,6 +303,10 @@ async def get_stock_history(
     return [
         SnapshotResponse(
             ltp=s.ltp,
+            open=s.open if s.open is not None else s.ltp,
+            high=s.high if s.high is not None else s.ltp,
+            low=s.low if s.low is not None else s.ltp,
+            close=s.close if s.close is not None else s.ltp,
             volume=s.volume,
             change_pct=s.change_pct,
             date=s.snapshot_date,

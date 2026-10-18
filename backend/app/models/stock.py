@@ -20,7 +20,7 @@ WHY UniqueConstraint on (stock_id, screener_id, snapshot_date)?
 - Acts as a natural "upsert" boundary.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import Column, UniqueConstraint
@@ -47,7 +47,7 @@ class Stock(SQLModel, table=True):
         description="Broad sector from Chartlink (if available)",
     )
     first_seen: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When this stock first appeared in any screener",
     )
     is_active: bool = Field(
@@ -83,6 +83,10 @@ class DailySnapshot(SQLModel, table=True):
     screener_id: int = Field(foreign_key="screeners.id", index=True)
 
     ltp: float = Field(description="Last Traded Price")
+    open: float | None = Field(default=None, description="Day open price")
+    high: float | None = Field(default=None, description="Day high price")
+    low: float | None = Field(default=None, description="Day low price")
+    close: float | None = Field(default=None, description="Day close price")
     volume: int | None = Field(default=None, description="Trading volume")
     change_pct: float | None = Field(
         default=None, description="Daily change percentage"
@@ -96,4 +100,4 @@ class DailySnapshot(SQLModel, table=True):
         sa_column=Column(JSONB, nullable=True),
     )
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

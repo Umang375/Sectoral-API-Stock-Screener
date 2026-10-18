@@ -148,7 +148,7 @@ export default async function TagDetailPage({ params }) {
         {!stocksData.length ? (
           <div className="empty-state"><p>No related stocks found.</p></div>
         ) : stocksData.map((stock) => (
-          <Link key={stock.symbol} href={`/stocks?q=${encodeURIComponent(stock.symbol)}`} className="performer-item link-clean">
+          <Link key={stock.symbol} href={`/stocks/${encodeURIComponent(stock.symbol)}`} className="performer-item link-clean">
             <div className="performer-info">
               <span className="performer-symbol">{stock.symbol}</span>
               <span className="text-muted subtext-small">{stock.name}</span>

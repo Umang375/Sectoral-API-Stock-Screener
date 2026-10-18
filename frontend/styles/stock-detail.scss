@@ -1,0 +1,445 @@
+// ==============================================================================
+// STOCK DETAIL PAGE & TRADINGVIEW CHART STYLING
+// ==============================================================================
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.stock-detail-page {
+  @include flex(stretch, flex-start, column, $space-6);
+  width: 100%;
+}
+
+.stock-detail-back {
+  margin-bottom: -$space-2;
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    color: $text-secondary;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: $space-1 $space-3;
+    border-radius: $radius-sm;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all $transition-fast;
+
+    &:hover {
+      color: $text-primary;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateX(-2px);
+    }
+  }
+}
+
+// ── Stock Master Header ───────────────────────────────────────
+.stock-master-header {
+  @include card($space-6);
+  @include flex(stretch, flex-start, column, $space-6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(26, 31, 46, 0.95), rgba(17, 24, 39, 0.95));
+}
+
+.stock-header-main {
+  @include flex(flex-start, space-between, row);
+  flex-wrap: wrap;
+  gap: $space-6;
+}
+
+.stock-title-group {
+  @include flex(flex-start, flex-start, column, $space-2);
+}
+
+.stock-badge-row {
+  @include flex(center, flex-start, row, $space-3);
+  flex-wrap: wrap;
+
+  .stock-symbol-title {
+    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: $text-primary;
+    margin: 0;
+  }
+
+  .badge-sector {
+    @include badge(rgba(99, 102, 241, 0.15), $accent-hover, rgba(99, 102, 241, 0.3));
+    font-size: 0.75rem;
+    padding: 3px $space-3;
+  }
+
+  .badge-dormant {
+    @include badge(rgba(239, 68, 68, 0.15), #f87171, rgba(239, 68, 68, 0.3));
+    font-size: 0.75rem;
+    padding: 3px $space-3;
+  }
+}
+
+.stock-company-name {
+  font-size: 0.95rem;
+  color: $text-secondary;
+  margin: 0;
+}
+
+.stock-tags-row {
+  @include flex(center, flex-start, row, $space-2);
+  flex-wrap: wrap;
+  margin-top: $space-1;
+
+  .stock-tags-label {
+    font-size: 0.75rem;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  .tag-hover-link {
+    text-decoration: none;
+    transition: all $transition-fast;
+
+    &:hover {
+      background: rgba(99, 102, 241, 0.3);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+  }
+}
+
+// ── Price Spotlight ──────────────────────────────────────────
+.stock-spotlight-price {
+  text-align: right;
+  @include flex(flex-end, flex-start, column, $space-1);
+
+  .spotlight-ltp {
+    font-size: 2.1rem;
+    font-weight: 800;
+    font-family: $font-mono;
+    color: $text-primary;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .spotlight-change {
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: $font-mono;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px $space-2;
+    border-radius: $radius-sm;
+
+    &.change-positive {
+      color: $green-light;
+      background: $green-bg;
+    }
+
+    &.change-negative {
+      color: $red-light;
+      background: $red-bg;
+    }
+
+    .spotlight-date-sub {
+      font-size: 0.75rem;
+      color: $text-muted;
+      font-weight: 400;
+    }
+  }
+
+  .spotlight-as-of {
+    font-size: 0.75rem;
+    color: $text-muted;
+    margin-top: 2px;
+  }
+}
+
+// ── Metrics Strip ────────────────────────────────────────────
+.stock-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: $space-4;
+  padding-top: $space-4;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+  .metric-cell {
+    @include flex(flex-start, flex-start, column, 4px);
+    background: rgba(0, 0, 0, 0.2);
+    padding: $space-3 $space-4;
+    border-radius: $radius-sm;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+
+    .metric-label {
+      font-size: 0.7rem;
+      color: $text-muted;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .metric-val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: $font-mono;
+      color: $text-primary;
+    }
+  }
+}
+
+// ── Stock Chart Card ─────────────────────────────────────────
+.stock-chart-card {
+  padding: $space-6;
+  overflow: hidden;
+
+  .card-header-clean {
+    @include flex(center, space-between, row);
+    margin-bottom: $space-4;
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: $text-primary;
+      margin: 0 0 4px 0;
+    }
+
+    .section-subtitle {
+      font-size: 0.8rem;
+      color: $text-muted;
+      margin: 0;
+    }
+  }
+}
+
+// ── TradingView Chart Component ──────────────────────────────
+.tv-chart-wrapper {
+  @include flex(stretch, flex-start, column);
+  width: 100%;
+  border-radius: $radius-md;
+  overflow: hidden;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tv-chart-header {
+  @include flex(center, space-between, row);
+  flex-wrap: wrap;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tv-controls-left {
+  @include flex(center, flex-start, row, $space-4);
+  flex-wrap: wrap;
+}
+
+.tv-type-pills {
+  @include flex(center, flex-start, row, 2px);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px;
+  border-radius: $radius-sm;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+
+  .tv-type-btn {
+    background: transparent;
+    border: none;
+    color: $text-muted;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px $space-3;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      color: $text-primary;
+    }
+
+    &.active {
+      color: #fff;
+      background: $bg-card-hover;
+      box-shadow: $shadow-sm;
+    }
+  }
+}
+
+.tv-timeframe-pills {
+  @include flex(center, flex-start, row, 4px);
+
+  .tv-tf-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: $text-muted;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px $space-3;
+    border-radius: $radius-sm;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      color: $text-primary;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    &.active {
+      color: #fff;
+      background: $accent;
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+    }
+  }
+}
+
+// ── OHLCV Live HUD ───────────────────────────────────────────
+.tv-hud-stats {
+  @include flex(center, flex-end, row, $space-4);
+  flex-wrap: wrap;
+  font-family: $font-mono;
+  font-size: 0.75rem;
+
+  .tv-hud-item {
+    @include flex(center, flex-start, row, 4px);
+
+    .tv-hud-label {
+      color: $text-muted;
+      font-weight: 500;
+    }
+
+    .tv-hud-val {
+      color: $text-primary;
+    }
+  }
+
+  .tv-hud-date {
+    color: $accent-hover;
+    font-weight: 600;
+  }
+
+  .tv-hud-vol {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: $space-3;
+  }
+}
+
+.tv-chart-canvas-container {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  display: block;
+}
+
+.tv-chart-loading {
+  @include flex(center, center, column, $space-4);
+  min-height: 400px;
+  background: #111827;
+  border-radius: $radius-md;
+  color: $text-muted;
+  font-size: 0.9rem;
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(99, 102, 241, 0.2);
+    border-top-color: $accent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ── Stock Bottom Grid (Returns & History) ────────────────────
+.stock-bottom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: $space-6;
+  width: 100%;
+
+  .card {
+    @include card($space-5);
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: $text-primary;
+      margin: 0 0 2px 0;
+    }
+
+    .section-subtitle {
+      font-size: 0.75rem;
+      color: $text-muted;
+      margin: 0 0 $space-4 0;
+    }
+  }
+}
+
+.returns-table-wrapper {
+  overflow-x: auto;
+  @include custom-scrollbar();
+}
+
+.mini-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-family: $font-sans;
+
+  thead th {
+    text-align: left;
+    padding: $space-2 $space-3;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: $text-muted;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    &.text-right {
+      text-align: right;
+    }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background $transition-fast;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    td {
+      padding: $space-2 $space-3;
+      color: $text-secondary;
+      font-family: $font-mono;
+
+      &.text-right {
+        text-align: right;
+      }
+    }
+  }
+}
+
+@media (max-width: $bp-md) {
+  .stock-header-main {
+    flex-direction: column;
+  }
+
+  .stock-spotlight-price {
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .tv-hud-stats {
+    justify-content: flex-start;
+  }
+}
