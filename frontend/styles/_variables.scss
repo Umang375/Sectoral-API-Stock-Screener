@@ -1,0 +1,74 @@
+// ==============================================================================
+// DESIGN SYSTEM TOKENS & SCSS VARIABLES
+// ==============================================================================
+
+// Theme: Dark premium fintech — Bloomberg Terminal & modern trading desks
+
+// Backgrounds
+$bg-primary: #0a0e17;
+$bg-secondary: #111827;
+$bg-card: #1a1f2e;
+$bg-card-hover: #222839;
+$bg-elevated: #252b3b;
+
+// Text colors
+$text-primary: #f0f2f5;
+$text-secondary: #9ca3af;
+$text-muted: #6b7280;
+
+// Accents & Brand
+$accent: #6366f1;
+$accent-hover: #818cf8;
+$accent-glow: rgba(99, 102, 241, 0.15);
+
+// Financial indicator colors
+$green: #10b981;
+$green-bg: rgba(16, 185, 129, 0.1);
+$green-light: #34d399;
+
+$red: #ef4444;
+$red-bg: rgba(239, 68, 68, 0.1);
+$red-light: #f87171;
+
+$yellow: #f59e0b;
+$yellow-bg: rgba(245, 158, 11, 0.1);
+$blue: #3b82f6;
+$purple-light: #c084fc;
+
+// Typography
+$font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+$font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+// Spacing scale (4px base)
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+
+// Border radii
+$radius-sm: 6px;
+$radius-md: 10px;
+$radius-lg: 16px;
+$radius-xl: 24px;
+
+// Elevation & Shadows
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+$shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+$shadow-glow: 0 0 20px $accent-glow;
+
+// Motion
+$transition-fast: 150ms ease;
+$transition-base: 250ms ease;
+$transition-slow: 400ms ease;
+
+// Responsive Breakpoints
+$bp-sm: 640px;
+$bp-md: 768px;
+$bp-lg: 1024px;
+$bp-xl: 1280px;

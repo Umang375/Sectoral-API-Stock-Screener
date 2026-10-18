@@ -1,0 +1,91 @@
+// ==============================================================================
+// SCSS MIXINS & UTILITIES
+// ==============================================================================
+
+@use 'variables' as *;
+
+// Flexbox shorthand
+@mixin flex($align: center, $justify: flex-start, $direction: row, $gap: null) {
+  display: flex;
+  align-items: $align;
+  justify-content: $justify;
+  flex-direction: $direction;
+  @if $gap != null {
+    gap: $gap;
+  }
+}
+
+// Card container
+@mixin card($padding: $space-6, $radius: $radius-md) {
+  background: $bg-card;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $radius;
+  padding: $padding;
+  transition: all $transition-base;
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: $shadow-md;
+  }
+}
+
+// Badge pill
+@mixin badge($bg, $color, $border: transparent) {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-1 $space-3;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: $bg;
+  color: $color;
+  @if $border != transparent {
+    border: 1px solid $border;
+  }
+}
+
+// Text truncation
+@mixin truncate($max-width: 100%) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: $max-width;
+}
+
+// Custom Webkit Scrollbars
+@mixin custom-scrollbar($width: 6px, $track: $bg-primary, $thumb: $bg-elevated, $thumb-hover: $text-muted) {
+  &::-webkit-scrollbar {
+    width: $width;
+    height: $width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $track;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $thumb;
+    border-radius: 4px;
+
+    &:hover {
+      background: $thumb-hover;
+    }
+  }
+}
+
+// Responsive media queries
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == sm {
+    @media (max-width: $bp-sm) { @content; }
+  } @else if $breakpoint == md {
+    @media (max-width: $bp-md) { @content; }
+  } @else if $breakpoint == lg {
+    @media (max-width: $bp-lg) { @content; }
+  } @else if $breakpoint == xl {
+    @media (max-width: $bp-xl) { @content; }
+  } @else {
+    @media (max-width: $breakpoint) { @content; }
+  }
+}

@@ -1,0 +1,404 @@
+// ==============================================================================
+// DASHBOARD — Stats grid, stock lifecycle containers, and alert feeds
+// ==============================================================================
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// Stats Row
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: $space-5;
+  margin-bottom: $space-8;
+}
+
+.stat-card {
+  background: $bg-card;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $radius-md;
+  padding: $space-5 $space-6;
+  position: relative;
+  overflow: hidden;
+  transition: all $transition-base;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, $accent, #a78bfa);
+    opacity: 0;
+    transition: opacity $transition-base;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-glow;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $text-muted;
+  margin-bottom: $space-2;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-family: $font-mono;
+  background: linear-gradient(135deg, $text-primary 0%, $text-secondary 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+
+  &.green {
+    background: linear-gradient(135deg, $green 0%, $green-light 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  &.red {
+    background: linear-gradient(135deg, $red 0%, $red-light 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+}
+
+// Two Column Dashboard Grid
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-6;
+
+  @include respond-to(lg) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Top Performers List
+.performer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .performer-info {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+
+  .performer-symbol {
+    font-weight: 600;
+    font-size: 0.9rem;
+    font-family: $font-mono;
+  }
+
+  .performer-tags {
+    display: flex;
+    gap: $space-2;
+    flex-wrap: wrap;
+  }
+
+  .performer-return {
+    font-family: $font-mono;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+}
+
+// Alert Feed
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  padding: $space-3 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .alert-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $yellow;
+    margin-top: 6px;
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+
+  .alert-content {
+    flex: 1;
+  }
+
+  .alert-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .alert-time {
+    font-size: 0.7rem;
+    color: $text-muted;
+    margin-top: $space-1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+// Empty States
+.empty-state {
+  text-align: center;
+  padding: $space-12 $space-6;
+  color: $text-muted;
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: $space-4;
+    opacity: 0.3;
+  }
+
+  p {
+    font-size: 0.9rem;
+  }
+}
+
+.empty-state-mini {
+  padding: $space-6 0;
+  text-align: center;
+  color: $text-muted;
+  font-size: 0.85rem;
+
+  span {
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: $space-2;
+  }
+}
+
+// Dashboard Layout Helpers
+.card-mb {
+  margin-bottom: $space-6;
+}
+
+.card-mt {
+  margin-top: $space-6;
+}
+
+.link-clean {
+  text-decoration: none;
+}
+
+.subtext-small {
+  font-size: 0.75rem;
+}
+
+.error-muted-note {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.dashboard-heatmap-wrap {
+  margin-bottom: $space-8;
+}
+
+// Stock Lifecycle Grid (Dumped & Added Boxes)
+.lifecycle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-6;
+  margin-bottom: $space-8;
+
+  @include respond-to(900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lifecycle-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.lifecycle-header {
+  padding-bottom: $space-4;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lifecycle-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin-bottom: $space-1;
+}
+
+.card-subtitle {
+  font-size: 0.75rem;
+  color: $text-muted;
+}
+
+.badge-dumped-count {
+  background: rgba(239, 68, 68, 0.15);
+  color: $red-light;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.badge-added-count {
+  background: rgba(16, 185, 129, 0.15);
+  color: $green-light;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.lifecycle-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: $space-1;
+
+  @include custom-scrollbar(6px, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.25));
+}
+
+.lifecycle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3 $space-1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background $transition-fast;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  &-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: $space-2;
+  }
+
+  .lifecycle-symbol {
+    font-family: $font-mono;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: $accent;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: #a78bfa;
+      text-decoration: underline;
+    }
+  }
+
+  .lifecycle-company-name {
+    font-size: 0.8rem;
+    color: $text-secondary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
+
+  .lifecycle-meta-row {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: 0.72rem;
+  }
+
+  .lifecycle-sector-tag {
+    background: rgba(255, 255, 255, 0.06);
+    color: $text-muted;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .lifecycle-date-text {
+    color: $text-muted;
+  }
+
+  &-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    margin-left: $space-3;
+    flex-shrink: 0;
+  }
+
+  .lifecycle-price {
+    font-family: $font-mono;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+// Lifecycle Badges
+.badge-dormant {
+  background: rgba(239, 68, 68, 0.12);
+  color: $red-light;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.badge-new {
+  background: rgba(16, 185, 129, 0.12);
+  color: $green-light;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.badge-reactivated {
+  background: rgba(168, 85, 247, 0.12);
+  color: $purple-light;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}

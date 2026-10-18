@@ -6,12 +6,12 @@
  * defined in the corresponding styles/ file.
  */
 
-import '@/styles/globals.css';
-import '@/styles/layout.css';
-import '@/styles/dashboard.css';
-import '@/styles/stocks.css';
-import '@/styles/tags.css';
-import '@/styles/heatmap.css';
+import '@/styles/globals.scss';
+import '@/styles/layout.scss';
+import '@/styles/dashboard.scss';
+import '@/styles/stocks.scss';
+import '@/styles/tags.scss';
+import '@/styles/heatmap.scss';
 import Link from 'next/link';
 
 export const metadata = {

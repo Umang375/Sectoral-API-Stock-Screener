@@ -1,0 +1,225 @@
+// ==============================================================================
+// TAGS — Tag grid, tag card, and return chart breakdown
+// ==============================================================================
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// Tag Grid
+.tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $space-5;
+  margin-bottom: $space-8;
+}
+
+// Tag Card
+.tag-card {
+  background: $bg-card;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $radius-md;
+  padding: $space-5 $space-6;
+  cursor: pointer;
+  transition: all $transition-base;
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, $accent, transparent);
+    opacity: 0;
+    transition: opacity $transition-base;
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: $shadow-glow;
+
+    &::after {
+      opacity: 1;
+    }
+  }
+
+  .tag-label {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: $space-3;
+    color: $text-primary;
+  }
+
+  .tag-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tag-stock-count {
+    font-size: 0.8rem;
+    color: $text-secondary;
+
+    strong {
+      color: $accent;
+      font-family: $font-mono;
+    }
+  }
+
+  .tag-return {
+    font-family: $font-mono;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+}
+
+// Returns Chart (CSS Bars)
+.returns-section {
+  margin-top: $space-8;
+}
+
+.returns-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: $space-5;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+
+  .back-btn {
+    background: $bg-card;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: $radius-sm;
+    padding: $space-1 $space-3;
+    color: $text-secondary;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      color: $text-primary;
+      border-color: $accent;
+    }
+  }
+}
+
+.returns-chart {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.return-bar-row {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+}
+
+.return-bar-label {
+  width: 100px;
+  font-size: 0.75rem;
+  color: $text-muted;
+  font-family: $font-mono;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.return-bar-track {
+  flex: 1;
+  height: 28px;
+  background: $bg-elevated;
+  border-radius: $radius-sm;
+  position: relative;
+  overflow: hidden;
+}
+
+.return-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  padding: 0 $space-3;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: $font-mono;
+  color: white;
+  transition: width $transition-slow;
+  min-width: 45px;
+
+  &.positive {
+    background: linear-gradient(90deg, $green, $green-light);
+    left: 50%;
+  }
+
+  &.negative {
+    background: linear-gradient(90deg, $red-light, $red);
+    right: 50%;
+    justify-content: flex-end;
+  }
+}
+
+.return-bar-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.return-bar-value {
+  width: 65px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: $font-mono;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+// Return Stats Row
+.return-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $space-4;
+  margin-bottom: $space-6;
+}
+
+.return-stat-item {
+  background: $bg-card;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: $radius-sm;
+  padding: $space-4;
+  text-align: center;
+
+  .label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $text-muted;
+    margin-bottom: $space-1;
+  }
+
+  .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-family: $font-mono;
+  }
+}
+
+// Tags Helper Classes
+.tag-returns-heading {
+  margin-left: 12px;
+}
+
+.tags-link-clean {
+  text-decoration: none;
+}
+
+.tags-subtext {
+  font-size: 0.8rem;
+}

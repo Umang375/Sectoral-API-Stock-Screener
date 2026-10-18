@@ -153,3 +153,89 @@ export function formatPercent(val, showPlus = false) {
   }
   return `${formatted}%`;
 }
+
+/**
+ * Aggregates a flat list of stock records into sector cohort matrix objects.
+ * @param {Array} stocks
+ * @returns {Array} Array of sector objects compatible with SectorHeatmapTable
+ */
+export function aggregateSectorsFromStocks(stocks) {
+  if (!Array.isArray(stocks) || stocks.length === 0) return [];
+
+  const sectorsMap = new Map();
+
+  for (const stock of stocks) {
+    const sectorName = stock.sector?.trim() || 'Diversified / Others';
+    if (!sectorsMap.has(sectorName)) {
+      sectorsMap.set(sectorName, {
+        id: `sector-${sectorName}`,
+        label: sectorName,
+        stocks: [],
+        drawdownList: [],
+        ret1DList: [],
+        ret1WList: [],
+        ret1MList: [],
+        ret3MList: [],
+        ret6MList: [],
+        ret1YList: [],
+        ret2YList: [],
+      });
+    }
+
+    const sec = sectorsMap.get(sectorName);
+    sec.stocks.push({
+      symbol: stock.symbol,
+      name: stock.name,
+      ltp: stock.ltp,
+      change_pct: stock.change_pct,
+      drawdown_52w_high: stock.drawdown_52w_high,
+      volume: stock.volume,
+      return_1d: stock.return_1d,
+      return_1w: stock.return_1w,
+      return_1m: stock.return_1m,
+      return_3m: stock.return_3m,
+      return_6m: stock.return_6m,
+      return_1y: stock.return_1y,
+      return_2y: stock.return_2y,
+    });
+
+    if (stock.drawdown_52w_high != null) sec.drawdownList.push(stock.drawdown_52w_high);
+    if (stock.return_1d != null) sec.ret1DList.push(stock.return_1d);
+    if (stock.return_1w != null) sec.ret1WList.push(stock.return_1w);
+    if (stock.return_1m != null) sec.ret1MList.push(stock.return_1m);
+    if (stock.return_3m != null) sec.ret3MList.push(stock.return_3m);
+    if (stock.return_6m != null) sec.ret6MList.push(stock.return_6m);
+    if (stock.return_1y != null) sec.ret1YList.push(stock.return_1y);
+    if (stock.return_2y != null) sec.ret2YList.push(stock.return_2y);
+  }
+
+  const calcAvg = (arr) => arr.length ? Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1)) : null;
+
+  const result = [];
+  for (const sec of sectorsMap.values()) {
+    const advancing_count = sec.stocks.filter((s) => s.change_pct != null && s.change_pct > 0).length;
+    const declining_count = sec.stocks.filter((s) => s.change_pct != null && s.change_pct < 0).length;
+    const unchanged_count = sec.stocks.length - advancing_count - declining_count;
+
+    result.push({
+      id: sec.id,
+      label: sec.label,
+      stock_count: sec.stocks.length,
+      advancing_count,
+      declining_count,
+      unchanged_count,
+      drawdown_52w_high: calcAvg(sec.drawdownList),
+      return_1d: calcAvg(sec.ret1DList),
+      return_1w: calcAvg(sec.ret1WList),
+      return_1m: calcAvg(sec.ret1MList),
+      return_3m: calcAvg(sec.ret3MList),
+      return_6m: calcAvg(sec.ret6MList),
+      return_1y: calcAvg(sec.ret1YList),
+      return_2y: calcAvg(sec.ret2YList),
+      stocks: sec.stocks,
+    });
+  }
+
+  result.sort((a, b) => b.stock_count - a.stock_count);
+  return result;
+}

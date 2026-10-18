@@ -76,18 +76,18 @@ export default function SectorHeatmapTable({
   allowExpandAll = true,
   defaultMode = 'tags',
 }) {
-  const hasBothModes = Array.isArray(tags) && Array.isArray(sectors) && tags.length > 0 && sectors.length > 0;
-  const [activeMode, setActiveMode] = useState(hasBothModes ? defaultMode : (tags?.length ? 'tags' : (sectors?.length ? 'sectors' : 'tags')));
+  const hasBothModes = Boolean(tags !== null && sectors !== null);
+  const [activeMode, setActiveMode] = useState(hasBothModes ? defaultMode : (tags ? 'tags' : 'sectors'));
 
   const isSectorMode = activeMode === 'sectors';
-  const activeDataset = isSectorMode ? sectors : (tags || sectors);
+  const activeDataset = (isSectorMode ? sectors : (tags || sectors)) || [];
   const entityLabel = isSectorMode ? 'SECTOR' : 'TAG';
   const displayTitle = isSectorMode
     ? 'Top Sectors'
     : (title || (hasBothModes ? 'Top Tags' : 'Top Sectors'));
   const displaySubtitle = subtitle || (
     isSectorMode
-      ? `Tracking ${sectors.length} sector cohorts and constituent equities`
+      ? `Tracking ${sectors ? sectors.length : 0} sector cohorts and constituent equities`
       : `Market breadth, 52W high drawdown, and multi-period return heatmaps`
   );
 
@@ -152,7 +152,7 @@ export default function SectorHeatmapTable({
       {/* ── Table Header & Controls ───────────────────────── */}
       <div className="heatmap-header">
         <div className="heatmap-title-wrap">
-          <div className="flex items-center gap-3">
+          <div className="heatmap-title-row">
             <h3 className="heatmap-title">{displayTitle}</h3>
             {hasBothModes && (
               <div className="heatmap-mode-toggle">
@@ -164,7 +164,7 @@ export default function SectorHeatmapTable({
                     setExpandedSectors(new Set());
                   }}
                 >
-                  🏷️ Tags ({tags.length})
+                  🏷️ Tags ({tags ? tags.length : 0})
                 </button>
                 <button
                   type="button"
@@ -174,7 +174,7 @@ export default function SectorHeatmapTable({
                     setExpandedSectors(new Set());
                   }}
                 >
-                  🏭 Sectors ({sectors.length})
+                  🏭 Sectors ({sectors ? sectors.length : 0})
                 </button>
               </div>
             )}
@@ -210,7 +210,7 @@ export default function SectorHeatmapTable({
                 className={`filter-pill ${activeFilter === 'ALL' ? 'active' : ''}`}
                 onClick={() => setActiveFilter('ALL')}
               >
-                All ({sectors.length})
+                All ({activeDataset.length})
               </button>
               <button
                 type="button"

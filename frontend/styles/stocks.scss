@@ -1,0 +1,130 @@
+// ==============================================================================
+// STOCKS — Search bar, stock list table, and equity details
+// ==============================================================================
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// Search & Filter Bar
+.search-bar {
+  display: flex;
+  gap: $space-4;
+  margin-bottom: $space-6;
+}
+
+.search-form {
+  display: flex;
+  width: 100%;
+}
+
+.search-input {
+  flex: 1;
+  background: $bg-card;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: $radius-sm;
+  padding: $space-3 $space-4;
+  color: $text-primary;
+  font-family: $font-sans;
+  font-size: 0.875rem;
+  outline: none;
+  transition: all $transition-fast;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+
+  &:focus {
+    border-color: $accent;
+    box-shadow: 0 0 0 3px $accent-glow;
+  }
+}
+
+// Stock Row Elements
+.stock-symbol {
+  font-family: $font-mono;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: $accent;
+}
+
+.stock-name {
+  color: $text-secondary;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.stock-ltp {
+  font-family: $font-mono;
+  font-weight: 600;
+}
+
+.stock-change {
+  font-family: $font-mono;
+  font-weight: 600;
+  font-size: 0.85rem;
+
+  &.positive {
+    color: $green;
+  }
+
+  &.negative {
+    color: $red;
+  }
+}
+
+.stock-tags {
+  display: flex;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.stock-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px $space-2;
+  border-radius: 100px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  background: $accent-glow;
+  color: $accent-hover;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  white-space: nowrap;
+}
+
+// Pagination Controls
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3;
+  margin-top: $space-6;
+
+  &-btn {
+    background: $bg-card;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: $radius-sm;
+    padding: $space-2 $space-4;
+    color: $text-secondary;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover:not(:disabled) {
+      background: $bg-card-hover;
+      color: $text-primary;
+      border-color: $accent;
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+  }
+
+  &-info {
+    font-size: 0.8rem;
+    color: $text-muted;
+    font-family: $font-mono;
+  }
+}

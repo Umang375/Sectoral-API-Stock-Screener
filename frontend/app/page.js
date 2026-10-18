@@ -8,6 +8,7 @@ import { getDashboard, getStocks, getTags } from '@/lib/api';
 import SectorHeatmapTable from '@/components/SectorHeatmap/SectorHeatmapTable';
 import StockHeatmapTable from '@/components/SectorHeatmap/StockHeatmapTable';
 import StockLifecycleBoxes from '@/components/Dashboard/StockLifecycleBoxes';
+import { aggregateSectorsFromStocks } from '@/lib/heatmapUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,8 @@ export default async function DashboardPage() {
 
   if (error && !data) return <ErrorState message={error} />;
   if (!data) return null;
+
+  const sectors = aggregateSectorsFromStocks(stocks);
 
   const topStock = data.top_stocks_this_week?.[0];
   const hasValidReturn = Boolean(topStock?.is_complete && typeof topStock?.return_pct === 'number');
@@ -87,19 +90,17 @@ export default async function DashboardPage() {
         addedStocks={data.recently_added_stocks || []}
       />
 
-      {/* ── Top Tags Heatmap Matrix ─────────────────────────── */}
-      {tags.length > 0 && (
-        <div className="dashboard-heatmap-wrap">
-          <SectorHeatmapTable
-            sectors={tags}
-            title="Top Tags"
-            subtitle="Market breadth, 52W high drawdown, and multi-period return heatmaps"
-            defaultLimit={8}
-            showControls={true}
-            allowExpandAll={true}
-          />
-        </div>
-      )}
+      {/* ── Top Tags & Sectors Heatmap Matrix ──────────────── */}
+      <div className="dashboard-heatmap-wrap">
+        <SectorHeatmapTable
+          tags={tags}
+          sectors={sectors}
+          defaultMode="tags"
+          defaultLimit={8}
+          showControls={true}
+          allowExpandAll={true}
+        />
+      </div>
 
       {/* ── Top Stocks Heatmap Matrix ───────────────────────── */}
       {stocks.length > 0 && (

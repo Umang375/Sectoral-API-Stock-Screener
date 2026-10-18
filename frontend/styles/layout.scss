@@ -1,0 +1,228 @@
+// ==============================================================================
+// LAYOUT — Navigation shell, sidebar, and layout containers
+// ==============================================================================
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// App Shell
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+// Sidebar Navigation
+.sidebar {
+  width: 260px;
+  background: $bg-secondary;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: $space-6 0;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  transition: transform $transition-base;
+
+  @include respond-to(md) {
+    transform: translateX(-100%);
+  }
+
+  &-brand {
+    padding: 0 $space-6 $space-6;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: $space-4;
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, $accent 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      font-size: 0.7rem;
+      color: $text-muted;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: $space-1;
+    }
+  }
+}
+
+// Navigation Links
+.nav-section {
+  padding: 0 $space-3;
+  flex: 1;
+}
+
+.nav-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: $text-muted;
+  padding: $space-4 $space-3 $space-2;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3;
+  margin: $space-1 0;
+  border-radius: $radius-sm;
+  color: $text-secondary;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all $transition-fast;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    color: $text-primary;
+    background: $bg-card;
+  }
+
+  &.active {
+    color: $accent;
+    background: $accent-glow;
+  }
+
+  .nav-icon {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+  }
+}
+
+// Main Content
+.main-content {
+  flex: 1;
+  margin-left: 260px;
+  padding: $space-8;
+  min-height: 100vh;
+
+  @include respond-to(md) {
+    margin-left: 0;
+    padding: $space-4;
+  }
+}
+
+// Page Header
+.page-header {
+  margin-bottom: $space-8;
+
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    color: $text-secondary;
+    margin-top: $space-1;
+    font-size: 0.9rem;
+  }
+}
+
+// Card Component
+.card {
+  @include card;
+
+  &-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $space-5;
+  }
+
+  &-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: $text-secondary;
+  }
+}
+
+// Badge Components
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-1 $space-3;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  &-accent {
+    background: $accent-glow;
+    color: $accent;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+  }
+
+  &-green {
+    background: $green-bg;
+    color: $green;
+  }
+
+  &-red {
+    background: $red-bg;
+    color: $red;
+  }
+}
+
+// Table Wrapper & Table Base
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  th {
+    text-align: left;
+    padding: $space-3 $space-4;
+    color: $text-muted;
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  td {
+    padding: $space-3 $space-4;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: $text-primary;
+  }
+
+  tr {
+    transition: background $transition-fast;
+  }
+
+  tbody tr:hover {
+    background: $bg-card-hover;
+  }
+}
+
+// Loading Skeleton
+.skeleton {
+  background: linear-gradient(90deg, $bg-card 25%, $bg-elevated 50%, $bg-card 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: $radius-sm;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
