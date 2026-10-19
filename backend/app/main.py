@@ -39,6 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting Sectoral API [%s]", settings.ENVIRONMENT)
     await init_db()
     logger.info("Database tables ensured")
+    from app.services.market_calendar import init_market_calendar
+    await init_market_calendar()
+    logger.info("Market trading calendar initialized")
     # Build new derived analytics from persistent snapshots. This is
     # idempotent and never deletes or replaces existing AWS data.
     await backfill_derived_returns()

@@ -83,11 +83,27 @@ export default async function StockDetailPage({ params }) {
   const changePct = latest.change_pct;
   const isPositive = changePct != null && changePct >= 0;
 
-  // Calculate 52-week high drawdown from history if available
-  let high52w = null;
-  let drawdown52w = null;
-  if (history.length > 0) {
-    const prices = history.map((h) => Number(h.high ?? h.ltp)).filter((p) => !isNaN(p) && p > 0);
+  // Calculate 52-week high drawdown from stock or history within 365 calendar days
+  let high52w = stock.high_52w ?? null;
+  let drawdown52w = stock.drawdown_52w_high ?? null;
+
+  if ((high52w == null || drawdown52w == null) && history.length > 0) {
+    // 52 weeks corresponds to 365 calendar days (~250 trading days) from latest snapshot
+    const refDate = history[0].date ? new Date(history[0].date) : new Date();
+    const msInDay = 24 * 60 * 60 * 1000;
+    const history52w = history.filter((h) => {
+      if (!h.date) return false;
+      const d = new Date(h.date);
+      const diffDays = (refDate - d) / msInDay;
+      return diffDays >= 0 && diffDays <= 365;
+    });
+
+    // Fallback to latest 252 trading sessions if date filtering yielded empty
+    const targetHistory = history52w.length > 0 ? history52w : history.slice(0, 252);
+    const prices = targetHistory
+      .map((h) => Number(h.high ?? h.ltp))
+      .filter((p) => !isNaN(p) && p > 0);
+
     if (prices.length > 0) {
       high52w = Math.max(...prices);
       if (ltp && high52w > 0) {

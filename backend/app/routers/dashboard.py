@@ -27,6 +27,7 @@ from app.schemas.returns import (
     DashboardStock,
     DashboardTag,
 )
+from app.services.market_calendar import get_expected_trading_days
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -111,13 +112,14 @@ async def get_dashboard(
         points_result = await session.exec(points_stmt)
         data_points = points_result.one()
 
+        expected_days = get_expected_trading_days(row[3], row[4])
         top_stocks.append(
             DashboardStock(
                 symbol=row[0],
                 return_pct=row[2],
                 tags=tags,
                 data_points=data_points,
-                is_complete=data_points >= 5,
+                is_complete=data_points >= expected_days,
             )
         )
 
@@ -154,13 +156,14 @@ async def get_dashboard(
         )
         points_result = await session.exec(points_stmt)
         data_points = points_result.one()
+        expected_days = get_expected_trading_days(row[4], row[5])
         top_tags.append(
             DashboardTag(
                 tag=row[0],
                 avg_return_pct=row[2],
                 stock_count=row[3],
                 data_points=data_points,
-                is_complete=data_points >= 5,
+                is_complete=data_points >= expected_days,
             )
         )
 

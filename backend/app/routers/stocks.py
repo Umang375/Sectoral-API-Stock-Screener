@@ -107,16 +107,16 @@ async def list_stocks(
 
         latest_snap = snaps[0]
         ref_date = latest_snap.snapshot_date
-        valid_52w_ltps = [
-            s.ltp for s in snaps
-            if s.ltp is not None
+        valid_52w_prices = [
+            s.high if s.high is not None else s.ltp for s in snaps
+            if (s.high is not None or s.ltp is not None)
             and 0 <= (ref_date - s.snapshot_date).days <= 365
         ]
-        max_ltp = max(valid_52w_ltps) if valid_52w_ltps else None
+        max_price = max(valid_52w_prices) if valid_52w_prices else None
 
         drawdown_52w = (
-            round(((latest_snap.ltp - max_ltp) / max_ltp) * 100, 1)
-            if (latest_snap.ltp is not None and max_ltp and max_ltp > 0)
+            round(((latest_snap.ltp - max_price) / max_price) * 100, 1)
+            if (latest_snap.ltp is not None and max_price and max_price > 0)
             else None
         )
 
@@ -221,6 +221,29 @@ async def get_stock(
     tag_result = await session.exec(tag_stmt)
     tags = list(tag_result.all())
 
+    # 52-week high & drawdown over 365 calendar days
+    high_52w = None
+    drawdown_52w = None
+    if latest and latest.ltp:
+        ref_date = latest.snapshot_date
+        cutoff_date = ref_date - timedelta(days=365)
+        high_stmt = (
+            select(
+                func.max(
+                    func.coalesce(DailySnapshot.high, DailySnapshot.ltp)
+                )
+            )
+            .where(
+                DailySnapshot.stock_id == stock.id,
+                DailySnapshot.snapshot_date >= cutoff_date,
+                DailySnapshot.snapshot_date <= ref_date,
+            )
+        )
+        high_res = await session.exec(high_stmt)
+        high_52w = high_res.one_or_none()
+        if high_52w and high_52w > 0:
+            drawdown_52w = round(((latest.ltp - high_52w) / high_52w) * 100, 1)
+
     return StockResponse(
         id=stock.id,
         symbol=stock.symbol,
@@ -229,6 +252,8 @@ async def get_stock(
         is_active=stock.is_active,
         last_activated_at=stock.last_activated_at,
         tags=tags,
+        high_52w=high_52w,
+        drawdown_52w_high=drawdown_52w,
         latest_snapshot=(
             SnapshotResponse(
                 ltp=latest.ltp,

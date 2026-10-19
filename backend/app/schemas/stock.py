@@ -40,6 +40,8 @@ class StockResponse(BaseModel):
     last_activated_at: date | None = None
     tags: list[str] = []
     latest_snapshot: SnapshotResponse | None = None
+    high_52w: float | None = None
+    drawdown_52w_high: float | None = None
 
 
 class StockListItem(BaseModel):

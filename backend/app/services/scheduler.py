@@ -40,6 +40,7 @@ from app.redis_client import get_redis
 from app.services.chartlink_scraper import ChartlinkScraper
 from app.services.gemini_tagger import GeminiTagger
 from app.services.history_fetcher import backfill_stocks_in_background
+from app.services.market_calendar import is_trading_day, sync_market_holidays_from_upstox
 from app.services.returns_calculator import ReturnsCalculator
 from app.utils.rate_limiter import RateLimiter
 
@@ -60,6 +61,11 @@ async def daily_screener_fetch() -> None:
     3. Save a daily_snapshot for each stock.
     4. Generate (or retrieve cached) tags for each stock via Gemini.
     """
+    today = date.today()
+    if not is_trading_day(today):
+        logger.info("Today (%s) is an NSE market holiday or weekend. Skipping daily screener fetch.", today)
+        return
+
     settings = get_settings()
     scraper = ChartlinkScraper()
     redis = await get_redis()
@@ -296,6 +302,15 @@ async def cleanup_old_snapshots() -> None:
         logger.info("Cleaned up %d snapshots older than %s", len(old_snapshots), cutoff)
 
 
+async def sync_market_holidays_job() -> None:
+    """Sync official market holidays from Upstox API.
+
+    Called biannually (January 1st and July 1st at midnight IST).
+    """
+    async with async_session_factory() as session:
+        await sync_market_holidays_from_upstox(session)
+
+
 def register_jobs() -> None:
     """Register all scheduled jobs on the module-level scheduler.
 
@@ -328,4 +343,13 @@ def register_jobs() -> None:
         replace_existing=True,
     )
 
-    logger.info("Scheduled jobs registered: daily_fetch, weekly_returns, cleanup")
+    # Market holidays sync: Jan 1 & Jul 1 at midnight IST
+    scheduler.add_job(
+        sync_market_holidays_job,
+        CronTrigger(month="1,7", day=1, hour=0, minute=0, timezone="Asia/Kolkata"),
+        id="sync_market_holidays",
+        name="Sync Market Holidays Calendar",
+        replace_existing=True,
+    )
+
+    logger.info("Scheduled jobs registered: daily_fetch, weekly_returns, cleanup, holidays_sync")

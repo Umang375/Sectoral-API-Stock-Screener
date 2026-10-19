@@ -27,6 +27,7 @@ from app.schemas.tag import (
     TagStockDetail,
     TagStockItem,
 )
+from app.services.market_calendar import get_expected_trading_days
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
@@ -102,15 +103,16 @@ async def _enrich_tags_with_metrics(
                 continue
             latest_snap = snaps[0]
             ref_date = latest_snap.snapshot_date
-            valid_52w_ltps = [
-                s.ltp for s in snaps
-                if s.ltp is not None and 0 <= (ref_date - s.snapshot_date).days <= 365
+            valid_52w_prices = [
+                s.high if s.high is not None else s.ltp for s in snaps
+                if (s.high is not None or s.ltp is not None)
+                and 0 <= (ref_date - s.snapshot_date).days <= 365
             ]
-            max_ltp = max(valid_52w_ltps) if valid_52w_ltps else None
+            max_price = max(valid_52w_prices) if valid_52w_prices else None
 
             drawdown_52w = (
-                round(((latest_snap.ltp - max_ltp) / max_ltp) * 100, 1)
-                if (latest_snap.ltp is not None and max_ltp and max_ltp > 0)
+                round(((latest_snap.ltp - max_price) / max_price) * 100, 1)
+                if (latest_snap.ltp is not None and max_price and max_price > 0)
                 else None
             )
 
@@ -338,6 +340,7 @@ async def get_tag_returns(
             )
         )
         data_points = points_result.one()
+        expected_days = get_expected_trading_days(row.week_start, row.week_end)
         items.append(
             TagReturnsItem(
                 week_start=row.week_start,
@@ -346,7 +349,7 @@ async def get_tag_returns(
                 median_return_pct=row.median_return_pct,
                 stock_count=row.stock_count,
                 data_points=data_points,
-                is_complete=data_points >= 5,
+                is_complete=data_points >= expected_days,
             )
         )
 

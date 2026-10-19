@@ -163,12 +163,24 @@ class ChartlinkScraper:
         fields are: nsecode, name, close, volume, per_chg.  We map them
         to our stable ScrapedStock structure.
         """
+        raw_vol = row.get("volume")
+        volume = (
+            int(raw_vol)
+            if raw_vol is not None and str(raw_vol).strip() != ""
+            else None
+        )
+        raw_chg = row.get("per_chg")
+        change_pct = (
+            float(raw_chg)
+            if raw_chg is not None and str(raw_chg).strip() != ""
+            else None
+        )
         return ScrapedStock(
             symbol=str(row.get("nsecode", row.get("symbol", ""))).upper().strip(),
             name=str(row.get("name", "")).strip(),
             ltp=float(row.get("close", row.get("ltp", 0))),
-            volume=int(row["volume"]) if row.get("volume") else None,
-            change_pct=float(row["per_chg"]) if row.get("per_chg") else None,
+            volume=volume,
+            change_pct=change_pct,
             raw=row,
         )
 

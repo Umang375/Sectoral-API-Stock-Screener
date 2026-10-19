@@ -34,6 +34,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.returns import TagDailyReturns, TagWeeklyReturns, WeeklyReturns
 from app.models.stock import DailySnapshot, Stock
 from app.models.tag import StockTag, Tag
+from app.services.market_calendar import get_expected_trading_days
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +65,13 @@ class ReturnsCalculator:
         """
         today = target_date or date.today()
         week_start, week_end = self._get_last_trading_week(today)
+        expected_days = get_expected_trading_days(week_start, week_end)
 
         logger.info(
-            "Calculating weekly returns for %s to %s",
+            "Calculating weekly returns for %s to %s (expected trading days: %d)",
             week_start.isoformat(),
             week_end.isoformat(),
+            expected_days,
         )
 
         stocks_count = await self._calculate_stock_returns(session, week_start, week_end)
@@ -213,37 +216,67 @@ class ReturnsCalculator:
 
         processed = 0
         for stock_id in stock_ids:
-            # Earliest snapshot in the week = "open"
-            open_stmt = (
-                select(DailySnapshot.ltp)
+            # Snapshots in the week ordered chronologically
+            week_snaps_stmt = (
+                select(DailySnapshot)
                 .where(
                     DailySnapshot.stock_id == stock_id,
                     DailySnapshot.snapshot_date >= week_start,
                     DailySnapshot.snapshot_date <= week_end,
                 )
                 .order_by(DailySnapshot.snapshot_date.asc())
-                .limit(1)
             )
-            open_result = await session.exec(open_stmt)
-            open_ltp = open_result.first()
+            week_snaps_res = await session.exec(week_snaps_stmt)
+            week_snaps = list(week_snaps_res.all())
 
-            # Latest snapshot in the week = "close"
-            close_stmt = (
+            if not week_snaps:
+                continue
+
+            open_snap = week_snaps[0]
+            close_snap = week_snaps[-1]
+            close_ltp = close_snap.ltp
+
+            # Determine opening price baseline:
+            # 1. Prior snapshot before this week (e.g. previous Friday close)
+            # 2. If no prior snapshot and open_snap.open is available, use open
+            # 3. If single snapshot and change_pct exists, derive implied prior close
+            # 4. Fallback to open_snap.ltp
+            open_ltp = None
+            return_pct = None
+
+            prior_stmt = (
                 select(DailySnapshot.ltp)
                 .where(
                     DailySnapshot.stock_id == stock_id,
-                    DailySnapshot.snapshot_date >= week_start,
-                    DailySnapshot.snapshot_date <= week_end,
+                    DailySnapshot.snapshot_date < week_start,
                 )
                 .order_by(DailySnapshot.snapshot_date.desc())
                 .limit(1)
             )
-            close_result = await session.exec(close_stmt)
-            close_ltp = close_result.first()
+            prior_res = await session.exec(prior_stmt)
+            prior_ltp = prior_res.first()
 
-            if open_ltp and close_ltp and open_ltp > 0:
-                return_pct = round(((close_ltp - open_ltp) / open_ltp) * 100, 4)
+            if prior_ltp is not None and prior_ltp > 0:
+                open_ltp = prior_ltp
+                if close_ltp and close_ltp > 0:
+                    return_pct = round(((close_ltp - open_ltp) / open_ltp) * 100, 4)
+            elif open_snap.open is not None and open_snap.open > 0:
+                open_ltp = open_snap.open
+                if close_ltp and close_ltp > 0:
+                    return_pct = round(((close_ltp - open_ltp) / open_ltp) * 100, 4)
+            elif len(week_snaps) == 1 and open_snap.change_pct is not None:
+                return_pct = round(open_snap.change_pct, 4)
+                if open_snap.change_pct != -100:
+                    implied_open = open_snap.ltp / (1 + (open_snap.change_pct / 100))
+                    open_ltp = round(implied_open, 2)
+                else:
+                    open_ltp = open_snap.ltp
+            else:
+                open_ltp = open_snap.ltp
+                if close_ltp and close_ltp > 0 and open_ltp > 0:
+                    return_pct = round(((close_ltp - open_ltp) / open_ltp) * 100, 4)
 
+            if open_ltp and close_ltp and return_pct is not None:
                 # Upsert: check if we already computed returns for this stock+week.
                 existing_stmt = select(WeeklyReturns).where(
                     WeeklyReturns.stock_id == stock_id,

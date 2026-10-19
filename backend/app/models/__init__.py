@@ -13,3 +13,4 @@ from app.models.stock import DailySnapshot, Stock  # noqa: F401
 from app.models.tag import StockTag, Tag  # noqa: F401
 from app.models.returns import TagDailyReturns, TagWeeklyReturns, WeeklyReturns  # noqa: F401
 from app.models.webhook import WebhookAlert  # noqa: F401
+from app.models.calendar import MarketHoliday  # noqa: F401

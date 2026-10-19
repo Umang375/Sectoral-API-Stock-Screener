@@ -374,3 +374,13 @@ async def upload_csv(
         stocks_tagged=0,
         message=f"CSV upload for '{screener.name}' processed. Background tagging started.",
     )
+
+
+@router.post("/sync-holidays")
+async def sync_holidays(
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Manually trigger exchange trading holidays sync from Upstox API."""
+    from app.services.market_calendar import sync_market_holidays_from_upstox
+    return await sync_market_holidays_from_upstox(session)
+
