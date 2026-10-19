@@ -72,6 +72,7 @@ export default function SectorHeatmapTable({
   title = null,
   subtitle = null,
   defaultLimit = null,
+  pageSize = 150,
   showControls = true,
   allowExpandAll = true,
   defaultMode = 'tags',
@@ -82,14 +83,6 @@ export default function SectorHeatmapTable({
   const isSectorMode = activeMode === 'sectors';
   const activeDataset = (isSectorMode ? sectors : (tags || sectors)) || [];
   const entityLabel = isSectorMode ? 'SECTOR' : 'TAG';
-  const displayTitle = isSectorMode
-    ? 'Top Sectors'
-    : (title || (hasBothModes ? 'Top Tags' : 'Top Sectors'));
-  const displaySubtitle = subtitle || (
-    isSectorMode
-      ? `Tracking ${sectors ? sectors.length : 0} sector cohorts and constituent equities`
-      : `Market breadth, 52W high drawdown, and multi-period return heatmaps`
-  );
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL');
@@ -97,6 +90,7 @@ export default function SectorHeatmapTable({
   const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
   const [expandedSectors, setExpandedSectors] = useState(new Set());
   const [isExpandedLimit, setIsExpandedLimit] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Toggle single sector row accordion
   const toggleRow = (tagId) => {
@@ -120,17 +114,34 @@ export default function SectorHeatmapTable({
     sortDir
   );
 
-  // Determine pagination / row display count
-  const displayedSectors = (!defaultLimit || isExpandedLimit)
-    ? filteredSectors
-    : filteredSectors.slice(0, defaultLimit);
+  // Pagination calculation
+  const totalItems = filteredSectors.length;
+  const isPaginated = !defaultLimit && pageSize > 0 && totalItems > pageSize;
+  const totalPages = isPaginated ? Math.ceil(totalItems / pageSize) : 1;
+  const validPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = isPaginated ? (validPage - 1) * pageSize : 0;
+  const endIndex = isPaginated ? Math.min(startIndex + pageSize, totalItems) : totalItems;
+
+  // Determine row display count
+  const displayedSectors = defaultLimit
+    ? (isExpandedLimit ? filteredSectors : filteredSectors.slice(0, defaultLimit))
+    : (isPaginated ? filteredSectors.slice(startIndex, endIndex) : filteredSectors);
+
+  const displayTitle = isSectorMode
+    ? 'Top Sectors'
+    : (title || (hasBothModes ? 'Top Tags' : 'Top Sectors'));
+  const displaySubtitle = subtitle || (
+    isSectorMode
+      ? `Tracking ${sectors ? sectors.length : 0} sector cohorts and constituent equities${isPaginated ? ` • Page ${validPage} of ${totalPages}` : ''}`
+      : `Market breadth, 52W high drawdown, and multi-period return heatmaps${isPaginated ? ` • Page ${validPage} of ${totalPages}` : ''}`
+  );
 
   // Expand / Collapse all visible rows
   const toggleExpandAll = () => {
     if (expandedSectors.size > 0) {
       setExpandedSectors(new Set());
     } else {
-      const allIds = new Set(filteredSectors.map((s) => s.id));
+      const allIds = new Set(displayedSectors.map((s) => s.id));
       setExpandedSectors(allIds);
     }
   };
@@ -161,6 +172,7 @@ export default function SectorHeatmapTable({
                   className={`mode-toggle-btn ${activeMode === 'tags' ? 'active' : ''}`}
                   onClick={() => {
                     setActiveMode('tags');
+                    setCurrentPage(1);
                     setExpandedSectors(new Set());
                   }}
                 >
@@ -171,6 +183,7 @@ export default function SectorHeatmapTable({
                   className={`mode-toggle-btn ${activeMode === 'sectors' ? 'active' : ''}`}
                   onClick={() => {
                     setActiveMode('sectors');
+                    setCurrentPage(1);
                     setExpandedSectors(new Set());
                   }}
                 >
@@ -190,13 +203,19 @@ export default function SectorHeatmapTable({
                 type="text"
                 placeholder="Filter sector or stock..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="heatmap-search-input"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
                   className="heatmap-search-clear"
                 >
                   ✕
@@ -208,35 +227,50 @@ export default function SectorHeatmapTable({
               <button
                 type="button"
                 className={`filter-pill ${activeFilter === 'ALL' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('ALL')}
+                onClick={() => {
+                  setActiveFilter('ALL');
+                  setCurrentPage(1);
+                }}
               >
                 All ({activeDataset.length})
               </button>
               <button
                 type="button"
                 className={`filter-pill ${activeFilter === 'BULLISH' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('BULLISH')}
+                onClick={() => {
+                  setActiveFilter('BULLISH');
+                  setCurrentPage(1);
+                }}
               >
                 Bullish Breadth
               </button>
               <button
                 type="button"
                 className={`filter-pill ${activeFilter === 'BEARISH' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('BEARISH')}
+                onClick={() => {
+                  setActiveFilter('BEARISH');
+                  setCurrentPage(1);
+                }}
               >
                 Bearish Breadth
               </button>
               <button
                 type="button"
                 className={`filter-pill ${activeFilter === 'NEAR_HIGH' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('NEAR_HIGH')}
+                onClick={() => {
+                  setActiveFilter('NEAR_HIGH');
+                  setCurrentPage(1);
+                }}
               >
                 Near 52W High
               </button>
               <button
                 type="button"
                 className={`filter-pill ${activeFilter === 'TOP_GAINERS' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('TOP_GAINERS')}
+                onClick={() => {
+                  setActiveFilter('TOP_GAINERS');
+                  setCurrentPage(1);
+                }}
               >
                 1D Gainers
               </button>
@@ -413,28 +447,59 @@ export default function SectorHeatmapTable({
         </div>
       )}
 
-      {/* ── Expand All Rows or Toggle Limit ───────────────── */}
+      {/* ── Expand All Rows or Toggle Limit / Pagination ─────── */}
       <div className="heatmap-footer">
-        {hasMoreRows && (
-          <button
-            type="button"
-            className="heatmap-expand-btn"
-            onClick={() => setIsExpandedLimit((prev) => !prev)}
-          >
-            {isExpandedLimit
-              ? `↑ Collapse to Top ${defaultLimit} ${entityLabel === 'TAG' ? 'Tags' : 'Sectors'}`
-              : `↓ Show All ${filteredSectors.length} ${entityLabel === 'TAG' ? 'Tags' : 'Sectors'}`}
-          </button>
-        )}
+        <div className="heatmap-footer-left">
+          {hasMoreRows && (
+            <button
+              type="button"
+              className="heatmap-expand-btn"
+              onClick={() => setIsExpandedLimit((prev) => !prev)}
+            >
+              {isExpandedLimit
+                ? `↑ Collapse to Top ${defaultLimit} ${entityLabel === 'TAG' ? 'Tags' : 'Sectors'}`
+                : `↓ Show All ${filteredSectors.length} ${entityLabel === 'TAG' ? 'Tags' : 'Sectors'}`}
+            </button>
+          )}
 
-        {allowExpandAll && displayedSectors.length > 0 && (
-          <button
-            type="button"
-            className="heatmap-accordion-all-btn"
-            onClick={toggleExpandAll}
-          >
-            {expandedSectors.size > 0 ? '− Collapse All Stocks' : '+ Expand All Stocks'}
-          </button>
+          {allowExpandAll && displayedSectors.length > 0 && (
+            <button
+              type="button"
+              className="heatmap-accordion-all-btn"
+              onClick={toggleExpandAll}
+            >
+              {expandedSectors.size > 0 ? '− Collapse All Stocks' : '+ Expand All Stocks'}
+            </button>
+          )}
+        </div>
+
+        {isPaginated && totalPages > 1 && (
+          <div className="heatmap-pagination">
+            <span className="heatmap-pagination-info">
+              Showing {startIndex + 1}–{endIndex} of {totalItems} {entityLabel === 'TAG' ? 'tags' : 'sectors'}
+            </span>
+            <button
+              type="button"
+              className="heatmap-page-btn"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={validPage === 1}
+              aria-label="Previous page"
+            >
+              ← Prev
+            </button>
+            <span className="heatmap-page-num">
+              {validPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              className="heatmap-page-btn"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={validPage === totalPages}
+              aria-label="Next page"
+            >
+              Next →
+            </button>
+          </div>
         )}
       </div>
     </div>

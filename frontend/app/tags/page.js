@@ -16,8 +16,8 @@ export default async function TagsPage() {
 
   try {
     const [tagsRes, stocksRes] = await Promise.allSettled([
-      getTags(0, 500).catch(() => getTags(0, 200)),
-      getStocks(0, 500).catch(() => getStocks(0, 200)),
+      getTags(0, 500),
+      getStocks(0, 500),
     ]);
 
     if (tagsRes.status === 'fulfilled') {
@@ -53,6 +53,7 @@ export default async function TagsPage() {
         tags={tags}
         sectors={sectors}
         defaultMode="tags"
+        pageSize={150}
         showControls={true}
         allowExpandAll={true}
       />

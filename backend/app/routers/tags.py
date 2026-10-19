@@ -250,7 +250,7 @@ async def _enrich_tags_with_metrics(
 async def list_tags(
     session: AsyncSession = Depends(get_session),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=200),
+    limit: int = Query(150, ge=1, le=500, description="Page size (up to 500)"),
 ) -> list[TagResponse]:
     """List all tags with their performance matrix and constituent stocks."""
     # Subquery: count stocks per tag.

@@ -47,7 +47,7 @@ export async function getDashboard() {
   return apiFetch('/api/dashboard', { revalidate: 60 });
 }
 
-export async function getStocks(skip = 0, limit = 100) {
+export async function getStocks(skip = 0, limit = 150) {
   return apiFetch(`/api/stocks?skip=${skip}&limit=${limit}`, { revalidate: 300 });
 }
 
@@ -59,7 +59,7 @@ export async function getStockHistory(symbol, skip = 0, limit = 500) {
   return apiFetch(`/api/stocks/${encodeURIComponent(symbol)}/history?skip=${skip}&limit=${limit}`, { revalidate: 300 });
 }
 
-export async function getTags(skip = 0, limit = 100) {
+export async function getTags(skip = 0, limit = 150) {
   return apiFetch(`/api/tags?skip=${skip}&limit=${limit}`, { revalidate: 300 });
 }
 
