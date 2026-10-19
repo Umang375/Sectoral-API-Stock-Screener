@@ -26,11 +26,11 @@ def upgrade() -> None:
             holiday_type VARCHAR NOT NULL DEFAULT 'TRADING_HOLIDAY',
             closed_exchanges VARCHAR NOT NULL DEFAULT 'NSE,BSE',
             year INTEGER NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS ix_market_holidays_holiday_date ON market_holidays (holiday_date);
-        CREATE INDEX IF NOT EXISTS ix_market_holidays_year ON market_holidays (year);
+        )
     """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_market_holidays_holiday_date ON market_holidays (holiday_date)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_market_holidays_year ON market_holidays (year)")
 
 
 def downgrade() -> None:
-    op.execute("DROP TABLE IF EXISTS market_holidays;")
+    op.execute("DROP TABLE IF EXISTS market_holidays")
