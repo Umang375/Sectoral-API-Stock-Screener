@@ -101,6 +101,30 @@ def get_expected_trading_days(week_start: date, week_end: date) -> int:
     return max(1, count)
 
 
+def get_prior_trading_day(d: date, inclusive: bool = True) -> date:
+    """Return the nearest active trading session on or before date `d`.
+
+    If `inclusive` is False, strictly looks for trading days strictly before `d`.
+    """
+    curr = d if inclusive else d - timedelta(days=1)
+    while not is_trading_day(curr):
+        curr -= timedelta(days=1)
+    return curr
+
+
+def get_anchor_trading_date(ref_date: date, target_calendar_days: int) -> date:
+    """Find the valid market trading day anchor for multi-period returns.
+
+    For example, for 1W (target_calendar_days=7) or 1M (30 days):
+    Computes `target = ref_date - timedelta(days=target_calendar_days)`.
+    If the exchange was closed on that date (weekend or national holiday),
+    steps backward to the most recent valid market trading session so returns
+    are never anchored to dates when the exchange was closed.
+    """
+    target = ref_date - timedelta(days=target_calendar_days)
+    return get_prior_trading_day(target, inclusive=True)
+
+
 async def seed_baseline_holidays(session: AsyncSession) -> int:
     """Seed baseline holidays into database if market_holidays table is empty."""
     stmt = select(MarketHoliday.id).limit(1)

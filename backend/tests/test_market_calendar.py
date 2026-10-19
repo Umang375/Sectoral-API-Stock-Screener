@@ -34,6 +34,20 @@ class TestMarketCalendar(unittest.IsolatedAsyncioTestCase):
         # Republic Day week: Monday 2026-01-26 to Friday 2026-01-30 -> 4 trading days
         self.assertEqual(get_expected_trading_days(date(2026, 1, 26), date(2026, 1, 30)), 4)
 
+    def test_get_anchor_trading_date_avoids_closed_dates(self):
+        from app.services.market_calendar import get_anchor_trading_date, get_prior_trading_day
+
+        # On weekend (Sunday 2026-01-25), prior trading day steps back to Friday 2026-01-23
+        self.assertEqual(get_prior_trading_day(date(2026, 1, 25)), date(2026, 1, 23))
+
+        # On Republic Day (Monday 2026-01-26), prior trading day steps back to Friday 2026-01-23
+        self.assertEqual(get_prior_trading_day(date(2026, 1, 26)), date(2026, 1, 23))
+
+        # 1W anchor from Monday 2026-02-02 (7 days ago is Republic Day 2026-01-26)
+        # Avoids closed holiday and anchors to Friday 2026-01-23
+        anchor_1w = get_anchor_trading_date(date(2026, 2, 2), 7)
+        self.assertEqual(anchor_1w, date(2026, 1, 23))
+
     async def test_sync_market_holidays_filtering(self):
         """Verify that only TRADING_HOLIDAY on NSE/BSE are saved, ignoring SETTLEMENT_HOLIDAY & SPECIAL_TIMING."""
         mock_payload = {

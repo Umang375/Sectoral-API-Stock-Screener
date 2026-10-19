@@ -27,7 +27,7 @@ from app.schemas.tag import (
     TagStockDetail,
     TagStockItem,
 )
-from app.services.market_calendar import get_expected_trading_days
+from app.services.market_calendar import get_anchor_trading_date, get_expected_trading_days
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
@@ -124,7 +124,7 @@ async def _enrich_tags_with_metrics(
                 ]
                 if not candidates:
                     return None
-                target_d = ref_date - timedelta(days=target_days)
+                target_d = get_anchor_trading_date(ref_date, target_days)
                 candidates.sort(key=lambda s: abs((s.snapshot_date - target_d).days))
                 return candidates[0].ltp
 

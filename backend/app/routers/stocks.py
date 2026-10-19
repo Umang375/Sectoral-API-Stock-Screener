@@ -32,6 +32,7 @@ from app.schemas.stock import SnapshotResponse, StockListItem, StockResponse
 from app.schemas.tag import StockReturnsItem
 from app.models.returns import WeeklyReturns
 from app.services.history_fetcher import HistoryFetcher
+from app.services.market_calendar import get_anchor_trading_date
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
 
@@ -128,7 +129,7 @@ async def list_stocks(
             ]
             if not candidates:
                 return None
-            target_d = ref_date - timedelta(days=target_days)
+            target_d = get_anchor_trading_date(ref_date, target_days)
             candidates.sort(key=lambda s: abs((s.snapshot_date - target_d).days))
             return candidates[0].ltp
 
