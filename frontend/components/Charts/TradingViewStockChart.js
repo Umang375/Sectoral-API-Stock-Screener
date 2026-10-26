@@ -30,6 +30,21 @@ function formatVolume(val) {
 }
 
 /**
+ * Normalizes Lightweight Charts Time objects or strings to 'YYYY-MM-DD'.
+ */
+function normalizeTime(time) {
+  if (!time) return '';
+  if (typeof time === 'string') return time.slice(0, 10);
+  if (typeof time === 'object' && time.year) {
+    const y = time.year;
+    const m = String(time.month).padStart(2, '0');
+    const d = String(time.day).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(time);
+}
+
+/**
  * TradingViewStockChart
  * High-performance TradingView Lightweight Chart (v5) component.
  */
@@ -40,16 +55,18 @@ export default function TradingViewStockChart({
 }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
-  const mainSeriesRef = useRef(null);
+  const candleSeriesRef = useRef(null);
+  const lineSeriesRef = useRef(null);
   const volumeSeriesRef = useRef(null);
 
   const [activeTimeframe, setActiveTimeframe] = useState('ALL');
   const [chartType, setChartType] = useState('candles'); // 'candles' | 'line'
+  const [hudData, setHudData] = useState(null);
 
   // Process snapshots into strictly ascending, deduplicated OHLCV points
-  const { candleData, lineData, volumeData, latestBar } = useMemo(() => {
+  const { candleData, lineData, volumeData, dataMap, latestBar } = useMemo(() => {
     if (!Array.isArray(snapshots) || snapshots.length === 0) {
-      return { candleData: [], lineData: [], volumeData: [], latestBar: null };
+      return { candleData: [], lineData: [], volumeData: [], dataMap: new Map(), latestBar: null };
     }
 
     // Sort chronologically ascending
@@ -61,6 +78,9 @@ export default function TradingViewStockChart({
     const candles = [];
     const lines = [];
     const volumes = [];
+    const map = new Map();
+
+    let prevClose = null;
 
     for (const s of sorted) {
       const dateStr = typeof s.date === 'string' ? s.date.slice(0, 10) : s.date;
@@ -80,6 +100,23 @@ export default function TradingViewStockChart({
 
       const isUp = close >= open;
 
+      // Calculate daily change percentage accurately
+      const refBase = prevClose ?? open;
+      const change = close - refBase;
+      const changePct = refBase > 0 ? (change / refBase) * 100 : 0;
+      prevClose = close;
+
+      const barItem = {
+        time: dateStr,
+        open,
+        high,
+        low,
+        close,
+        volume: vol,
+        change,
+        changePct,
+      };
+
       candles.push({
         time: dateStr,
         open,
@@ -98,42 +135,45 @@ export default function TradingViewStockChart({
         value: vol,
         color: isUp ? 'rgba(16, 185, 129, 0.45)' : 'rgba(239, 68, 68, 0.45)',
       });
+
+      map.set(dateStr, barItem);
     }
 
-    const latest = candles.length > 0 ? candles[candles.length - 1] : null;
-    return { candleData: candles, lineData: lines, volumeData: volumes, latestBar: latest };
+    const latest = candles.length > 0 ? map.get(candles[candles.length - 1].time) : null;
+    return {
+      candleData: candles,
+      lineData: lines,
+      volumeData: volumes,
+      dataMap: map,
+      latestBar: latest,
+    };
   }, [snapshots]);
 
-  // Active hover HUD state (defaults to latest bar)
-  const [hudData, setHudData] = useState(null);
+  // Keep live references for crosshair handlers so no stale closures exist
+  const dataMapRef = useRef(dataMap);
+  dataMapRef.current = dataMap;
 
+  const latestBarRef = useRef(latestBar);
+  latestBarRef.current = latestBar;
+
+  // Set initial HUD state to latest bar
   useEffect(() => {
     if (latestBar) {
-      const volItem = volumeData.find((v) => v.time === latestBar.time);
-      const diff = latestBar.close - latestBar.open;
-      const pct = latestBar.open > 0 ? (diff / latestBar.open) * 100 : 0;
       setHudData({
-        time: latestBar.time,
-        open: latestBar.open,
-        high: latestBar.high,
-        low: latestBar.low,
-        close: latestBar.close,
-        volume: volItem ? volItem.value : 0,
-        change: diff,
-        changePct: pct,
+        ...latestBar,
         isLatest: true,
       });
     }
-  }, [latestBar, volumeData]);
+  }, [latestBar]);
 
-  // Initialize and mount chart
+  // Initialize and mount chart (Runs only when container mounts or symbol changes)
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     // Clean up any existing instances in container
     chartContainerRef.current.innerHTML = '';
 
-    // Create Chart instance
+    // Create Chart instance with professional financial scale styling
     const chart = createChart(chartContainerRef.current, {
       autoSize: true,
       layout: {
@@ -147,7 +187,7 @@ export default function TradingViewStockChart({
         horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
       },
       crosshair: {
-        mode: 1, // Magnet mode
+        mode: 0, // Normal mode: smooth, non-snapping 60fps tracking
         vertLine: {
           color: '#6366f1',
           width: 1,
@@ -164,14 +204,16 @@ export default function TradingViewStockChart({
       rightPriceScale: {
         borderColor: '#2a324b',
         scaleMargins: {
-          top: 0.1,
-          bottom: 0.25,
+          top: 0.08,
+          bottom: 0.08, // Balanced margins: full canvas utilization with zero dead gap
         },
       },
       timeScale: {
         borderColor: '#2a324b',
         timeVisible: false,
         secondsVisible: false,
+        rightOffset: 5,
+        barSpacing: 6,
       },
       localization: {
         priceFormatter: (price) =>
@@ -184,7 +226,7 @@ export default function TradingViewStockChart({
 
     chartRef.current = chart;
 
-    // Watermark
+    // Watermark in Pane 0 background
     if (symbol) {
       try {
         createTextWatermark(chart.panes()[0], {
@@ -193,7 +235,7 @@ export default function TradingViewStockChart({
           lines: [
             {
               text: symbol.toUpperCase(),
-              color: 'rgba(255, 255, 255, 0.05)',
+              color: 'rgba(255, 255, 255, 0.04)',
               fontSize: 56,
             },
           ],
@@ -203,89 +245,82 @@ export default function TradingViewStockChart({
       }
     }
 
-    // Add main price series (Candlestick or Line)
-    let mainSeries;
-    if (chartType === 'line') {
-      mainSeries = chart.addSeries(LineSeries, {
-        color: '#6366f1',
-        lineWidth: 2,
-      }, 0);
-      if (lineData.length > 0) mainSeries.setData(lineData);
-    } else {
-      mainSeries = chart.addSeries(CandlestickSeries, {
-        upColor: '#10b981',
-        downColor: '#ef4444',
-        borderVisible: true,
-        borderUpColor: '#10b981',
-        borderDownColor: '#ef4444',
-        wickUpColor: '#10b981',
-        wickDownColor: '#ef4444',
-      }, 0);
-      if (candleData.length > 0) mainSeries.setData(candleData);
-    }
-    mainSeriesRef.current = mainSeries;
+    // ── Pane 0: Candlestick Series ────────────────────────────
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#10b981',
+      downColor: '#ef4444',
+      borderVisible: true,
+      borderUpColor: '#10b981',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#10b981',
+      wickDownColor: '#ef4444',
+      visible: chartType === 'candles',
+    }, 0);
+    if (candleData.length > 0) candleSeries.setData(candleData);
+    candleSeriesRef.current = candleSeries;
 
-    // Volume Series (Pane 1)
+    // ── Pane 0: Line Series (co-exists for instant, zero-flicker toggling) ─
+    const lineSeries = chart.addSeries(LineSeries, {
+      color: '#6366f1',
+      lineWidth: 2,
+      priceLineVisible: true,
+      visible: chartType === 'line',
+    }, 0);
+    if (lineData.length > 0) lineSeries.setData(lineData);
+    lineSeriesRef.current = lineSeries;
+
+    // ── Pane 1: Volume Histogram Series ───────────────────────
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
-      priceScaleId: '',
+      priceScaleId: 'right', // Visible scale so volume numbers appear on the right
     }, 1);
+    if (volumeData.length > 0) volumeSeries.setData(volumeData);
     volumeSeriesRef.current = volumeSeries;
 
+    // Configure Volume Pane scale margins so spikes don't clip the ceiling
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.2, // 20% breathing room above highest volume bar
+        bottom: 0,
+      },
+    });
+
+    // Set dedicated height for Volume Pane
     const panes = chart.panes();
     if (panes.length > 1) {
       panes[1].setHeight(84);
-    }
-
-    if (volumeData.length > 0) {
-      volumeSeries.setData(volumeData);
     }
 
     if (candleData.length > 0) {
       chart.timeScale().fitContent();
     }
 
-    // Crosshair move HUD updater
+    // ── Crosshair Hover HUD Updater ───────────────────────────
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !param.time) {
-        if (latestBar) {
-          const volItem = volumeData.find((v) => v.time === latestBar.time);
-          const diff = latestBar.close - latestBar.open;
-          const pct = latestBar.open > 0 ? (diff / latestBar.open) * 100 : 0;
+        const latest = latestBarRef.current;
+        if (latest) {
           setHudData({
-            time: latestBar.time,
-            open: latestBar.open,
-            high: latestBar.high,
-            low: latestBar.low,
-            close: latestBar.close,
-            volume: volItem ? volItem.value : 0,
-            change: diff,
-            changePct: pct,
+            ...latest,
             isLatest: true,
           });
         }
         return;
       }
 
-      const bar = param.seriesData.get(mainSeries);
-      if (bar) {
-        const volBar = param.seriesData.get(volumeSeries);
-        const open = bar.open ?? bar.value;
-        const close = bar.close ?? bar.value;
-        const high = bar.high ?? bar.value;
-        const low = bar.low ?? bar.value;
-        const diff = close - open;
-        const pct = open > 0 ? (diff / open) * 100 : 0;
+      const timeKey = normalizeTime(param.time);
+      const bar = dataMapRef.current.get(timeKey);
 
+      if (bar) {
         setHudData({
-          time: param.time,
-          open,
-          high,
-          low,
-          close,
-          volume: volBar ? volBar.value : 0,
-          change: diff,
-          changePct: pct,
+          time: bar.time,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+          change: bar.change,
+          changePct: bar.changePct,
           isLatest: false,
         });
       }
@@ -294,12 +329,30 @@ export default function TradingViewStockChart({
     return () => {
       chart.remove();
       chartRef.current = null;
-      mainSeriesRef.current = null;
+      candleSeriesRef.current = null;
+      lineSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
-  }, [symbol, chartType, candleData.length]);
+  }, [symbol]);
 
-  // Handle timeframe changes
+  // Update series data dynamically if snapshots change without tearing down the chart
+  useEffect(() => {
+    if (candleSeriesRef.current && lineSeriesRef.current && volumeSeriesRef.current) {
+      candleSeriesRef.current.setData(candleData);
+      lineSeriesRef.current.setData(lineData);
+      volumeSeriesRef.current.setData(volumeData);
+    }
+  }, [candleData, lineData, volumeData]);
+
+  // Handle Chart Type Toggle (Candles vs Line) instantly with zero canvas flicker
+  useEffect(() => {
+    if (candleSeriesRef.current && lineSeriesRef.current) {
+      candleSeriesRef.current.applyOptions({ visible: chartType === 'candles' });
+      lineSeriesRef.current.applyOptions({ visible: chartType === 'line' });
+    }
+  }, [chartType]);
+
+  // Handle timeframe changes using exact trading sessions (Logical Range)
   const handleTimeframeChange = (tf) => {
     setActiveTimeframe(tf);
     const chart = chartRef.current;
@@ -310,21 +363,19 @@ export default function TradingViewStockChart({
       return;
     }
 
-    const lastDate = new Date(candleData[candleData.length - 1].time);
-    const fromDate = new Date(lastDate);
+    // Trading-day session counts: avoids weekend gaps & invalid date jumps
+    const tradingDayCounts = {
+      '1M': 21,
+      '3M': 63,
+      '6M': 126,
+      '1Y': 252,
+    };
 
-    if (tf === '1M') fromDate.setMonth(fromDate.getMonth() - 1);
-    else if (tf === '3M') fromDate.setMonth(fromDate.getMonth() - 3);
-    else if (tf === '6M') fromDate.setMonth(fromDate.getMonth() - 6);
-    else if (tf === '1Y') fromDate.setFullYear(fromDate.getFullYear() - 1);
+    const count = tradingDayCounts[tf] || candleData.length;
+    const to = candleData.length - 1;
+    const from = Math.max(0, to - count + 1);
 
-    const fromStr = fromDate.toISOString().slice(0, 10);
-    const toStr = lastDate.toISOString().slice(0, 10);
-
-    chart.timeScale().setVisibleRange({
-      from: fromStr,
-      to: toStr,
-    });
+    chart.timeScale().setVisibleLogicalRange({ from, to });
   };
 
   return (
